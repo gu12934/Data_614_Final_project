@@ -67,3 +67,5 @@ day of class). The Group Paper files should be submitted through D2L Dropbox
 
 <img width="1245" height="673" alt="image" src="https://github.com/user-attachments/assets/46369245-d5ef-47ef-b6a3-de262d90dd1a" />
 
+good repo to check out: https://github.com/avoytkiv/MDSA-UofC/tree/main/DATA607
+
