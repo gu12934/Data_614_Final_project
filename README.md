@@ -55,3 +55,12 @@ for peer evaluations. The details of requirements for group project will be prov
 D2L. Consult your ideas with the instructor early to help you better prepare your
 projects. You are required to present your projects (~15 minutes) to the class on the
 last day of class. The Group Project files should be submitted through D2L Dropbox
+
+Students are required to submit white papers in groups on a data analytics topic. Most
+appropriate topics can be business applications of one or more data analytics
+models/tools of your choice. I suggest papers 2-3 pages long, including an intro on the
+models/tools and examples of business applications. Further details will be provided
+on D2L. Consult your ideas with the instructor early on to help you better prepare
+your papers. You are required to submit your papers on D2L and present your papers
+in short format (about 5 minutes) to the class on the same day as group projects (last
+day of class). The Group Paper files should be submitted through D2L Dropbox
