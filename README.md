@@ -65,7 +65,11 @@ your papers. You are required to submit your papers on D2L and present your pape
 in short format (about 5 minutes) to the class on the same day as group projects (last
 day of class). The Group Paper files should be submitted through D2L Dropbox
 
+# course schedule
 <img width="1245" height="673" alt="image" src="https://github.com/user-attachments/assets/46369245-d5ef-47ef-b6a3-de262d90dd1a" />
+
+# textbooks
+<img width="569" height="416" alt="image" src="https://github.com/user-attachments/assets/b71271fd-a15b-4576-b7f7-d035dca97eb2" />
 
 good repo to check out: https://github.com/avoytkiv/MDSA-UofC/tree/main/DATA607
 
