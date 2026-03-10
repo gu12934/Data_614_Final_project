@@ -71,5 +71,11 @@ day of class). The Group Paper files should be submitted through D2L Dropbox
 # textbooks
 <img width="569" height="416" alt="image" src="https://github.com/user-attachments/assets/b71271fd-a15b-4576-b7f7-d035dca97eb2" />
 
+## group project
+<img width="1087" height="572" alt="image" src="https://github.com/user-attachments/assets/207ee945-c27c-403e-ad6c-f271ff7dc972" />
+
+## group paper
+<img width="1121" height="261" alt="image" src="https://github.com/user-attachments/assets/3c3a60c4-4c54-4275-9ba5-e13cbe49ae8e" />
+
 good repo to check out: https://github.com/avoytkiv/MDSA-UofC/tree/main/DATA607
 
