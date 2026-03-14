@@ -1,0 +1,462 @@
+---
+title: "Tree-Based Methods"
+author: "DATA 614 - University of Calgary"
+date: "March 10, 2026"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE, echo = TRUE)
+#install.packages("formatR")
+#library(formatR)
+
+```
+# Regression Trees
+
+```{r}
+#rm(list=ls())
+library(ISLR)
+#?Carseats
+summary(Carseats)
+
+attach(Carseats) 
+#adds the data to the session so you dont have to use the name of the dataset every time, and can just call the variable names.
+
+library(tree)
+#?tree
+tree_carseats=tree(Sales~.,Carseats)
+summary(tree_carseats)   
+#shows which variables were actually used and what is the tree size.
+
+#plot the tree
+par(mfrow=c(1,1))
+plot(tree_carseats)
+text(tree_carseats,pretty =0)
+
+#you can zoom in to get a better view!
+
+tree_carseats #this prints out the rules for the tree.
+
+```
+
+Now lets predict sales for a test data. We need to first create a tree based on a sample data. We will use a random sample of 200 observations from the data for training, and use the rest as test data.
+
+```{r}
+set.seed (2)  #to get the same results
+train=sample(nrow(Carseats), 200,replace = FALSE)
+Carseats_test=Carseats[-train ,]
+tree_carseats =tree(Sales~. ,Carseats,subset =train )
+tree_pred=predict(tree_carseats ,Carseats_test)
+```
+We can plot the predicted values versus actual ones. The ideal is for all predictions to be equal to the actual values, meaning that all points in the plot be on the diagonal. The vertical distance to the diagonal is the error.
+
+```{r}
+plot(tree_pred ,Sales[-train], xlim = c(0,15),ylim = c(0,15))
+abline(0,1)
+```
+
+We usually use MSE for calculating errors of a regression tree.
+
+```{r}
+MSE=mean((tree_pred-Sales[-train])^2)
+sqrt(MSE)
+# This implies that the predictions are roughly within sqrt(MSE) of the actual data. This can be seen as a significance interval.
+```
+## Pruning Regression Trees
+We now try to improve results by pruning the tree. First, use cross validation to find the optimal level of tree size.
+
+```{r}
+set.seed (3)
+#?cv.tree
+cv_carseats =cv.tree(tree_carseats)
+
+names(cv_carseats)
+# k is tuning parameter
+# dev is the cross validation deviance or error rate
+cv_carseats
+
+# now lets look at how the tuning parameter k and deviance change with size of the tree.
+par(mfrow=c(1,2))
+
+plot(cv_carseats$size ,cv_carseats$dev ,type="b")
+plot(cv_carseats$size ,cv_carseats$k ,type="b")
+
+```
+It seems that either 3, 7, or 10 is the best size for the tree. Note that the more splits there are, the better the training accuracy will be. However, this may result in overfitting, and reduce the accuracy for test set, which is the important factor!
+
+Next step is to actually prune the tree to the tree size that we want, which we choose 7 in this case. 
+```{r}
+prune_carseats =prune.tree(tree_carseats ,best =7)
+par(mfrow=c(1,1))
+plot(prune_carseats )
+text(prune_carseats ,pretty =0)
+
+tree_pred=predict (prune_carseats , Carseats_test)
+plot(tree_pred ,Sales[-train], xlim = c(0,15),ylim = c(0,15))
+abline(0,1)
+
+MSE=mean((tree_pred-Sales[-train])^2)
+
+sqrt(MSE)
+
+#usually, pruning also helps with test data accuracy, but not this time!
+```
+
+
+# Classification Trees
+We will use the "UCI_Default.csv" dataset to demonstrate classification trees.
+
+```{r}
+library(data.table)
+#?Carseats
+
+#need to define classes of data when reading it
+def=fread("UCI_Default.csv",header = TRUE,
+          colClasses = c("numeric","numeric","factor","factor",
+                         "factor","numeric","factor","factor",
+                         "factor","factor","factor","factor",
+                         "factor"))
+summary(def)
+str(def)
+attach(def)
+
+#library(tree)
+tree_carseats=tree(default~.-ID,def)  
+#because the "Urban" variable is categorical, the tree() function knows it should create a 
+# classification tree and not a regression tree.
+
+summary(tree_carseats)
+
+#draw the tree
+par(mfrow=c(1,1))
+plot(tree_carseats)
+text(tree_carseats,pretty =0)
+
+tree_carseats #show all rules for each branch of the tree
+```
+
+Now we need to calculate the accuracy for a test dataset. First, we create another model using a training set.
+```{r}
+#use a random set of 2000 for training and the rest for testing
+
+set.seed (22)
+train=sample(nrow(def), 2000,replace = FALSE)
+def_test=def[-train ,]
+tree_def =tree(default~.-ID ,def,subset =train )
+tree_pred=predict(tree_def ,def_test ,type ="class")
+
+#calculating accuracy in this case is easier, it is similar to the other classification methods:
+mean(tree_pred==def_test$default)
+
+#and we can create the confusion matrix
+table(tree_pred ,def_test$default)
+```
+
+## Pruning Classification Trees
+We now try to improve results by pruning the tree. This is similar to regression trees. First, we use cross validation to find the optimal level of tree size.
+
+```{r}
+set.seed (3)
+#?cv.tree
+cv_def =cv.tree(tree_def ,FUN=prune.misclass)
+
+names(cv_def)
+cv_def
+
+#draw the plots
+par(mfrow=c(1,2))
+# k is tuning parameter
+# dev is the cross validation error rate
+
+plot(cv_def$size ,cv_def$dev ,type="b")
+plot(cv_def$size ,cv_def$k ,type="b")
+
+#3 seems to be the best tree size, same as what we had
+prune_def =prune.misclass (tree_def ,best =3)
+par(mfrow=c(1,1))
+plot(prune_def )
+text(prune_def ,pretty =0)
+
+# lets see the performance of the pruned tree
+tree_pred=predict (prune_def, def_test ,type="class")
+table(tree_pred ,def_test$default)
+
+mean(tree_pred==def_test$default) #accuracy is similar as well
+
+# Lets see what happens with 4
+prune_def =prune.misclass(tree_def ,best =4)
+plot(prune_def )
+text(prune_def ,pretty =0)
+tree_pred=predict (prune_def , def_test ,type="class")
+table(tree_pred ,def_test$default)
+
+mean(tree_pred==def_test$default) #accuracy is the same
+```
+
+# Gradient Boosting Machines
+Here, we try to improve the performance of the tree by using gradient descent boosting. We work on the regression model from the Carseats dataset. Classification models are similarly done, but the loss function needs to be changed.
+
+## Using the GBM Package
+```{r}
+#install.packages("gbm")
+library(gbm)    
+
+set.seed(1)
+train=sample(nrow(Carseats),.8*nrow(Carseats),replace = FALSE)
+#length(train)
+
+#?gbm
+gbm1 = gbm(Sales~., distribution = "gaussian", #(squared error)
+data = Carseats[train,], n.trees = 1000, #stopping criteria
+interaction.depth = 1,  #size of tree in each step. In this case, a "stump"
+shrinkage = 0.001,  #learning rate
+cv.folds = 5, #cross-validation folds
+  n.cores = NULL, # defines the number of CPU cores 
+#to be used for parallel computing, in this case, all cores are used.
+  verbose = FALSE # this suppresses printing the progress of the model 
+  )
+
+gbm1
+
+names(gbm1)
+
+sqrt(min(gbm1$cv.error))
+
+gbm.perf(gbm1, method = "cv") 
+#The black line is the training set error and the green is the cross-validation error.
+```
+
+Next, we increase the size of the tree to include more degrees of interaction.
+```{r}
+gbm2 = gbm(Sales~., distribution = "gaussian",  data = Carseats[train,], 
+ n.trees = 1000, interaction.depth = 3,  shrinkage = 0.01,  cv.folds = 5,
+  n.cores = NULL, verbose = FALSE )
+
+sqrt(min(gbm2$cv.error))
+
+gbm.perf(gbm2, method = "cv")
+
+```
+We can inspect the importance of the variables: 
+```{r}
+summary(gbm2, las=2)
+
+summary(gbm2, cBars = 7, method = relative.influence,las = 2 )
+```
+Using the model for prediction:
+```{r}
+pred = predict(gbm2, n.trees = gbm2$n.trees, Carseats[-train,])
+
+sqrt(mean((pred-Carseats$Sales[-train])^2))
+
+```
+## Tuning the model
+
+As we saw in class, the performance of the model may depend heavily on the parameters. We can play with the parameters to improve the performance, and this is called Tuning or Parameter Tuning. Below is an example code of parameter tuning using loops. This is based on  \url{http://uc-r.github.io/gbm_regression}.
+
+```{r}
+#based on http://uc-r.github.io/gbm_regression:
+
+# create hyperparameter grid, choosing the parameters that we want to test
+hyper_grid <- expand.grid(
+  shrinkage = c(.01, .1, .3),
+  interaction.depth = c(1, 3, 5),
+  n.minobsinnode = c(5, 10, 15),
+  bag.fraction = c(.65, .8, 1), 
+  optimal_trees = 0,               # a place to dump results
+  min_RMSE = 0                     # a place to dump results
+)
+
+# total number of combinations
+nrow(hyper_grid)
+
+
+# randomize data
+random_index <- sample(1:nrow(Carseats[train,]), nrow(Carseats[-train,]))
+#random_carseats_train <- ames_train[random_index, ]
+
+# grid search 
+for(i in 1:nrow(hyper_grid)) {
+  
+  # reproducibility
+  set.seed(123)
+  
+  # train model
+  gbm.tune <- gbm(
+    formula = Sales~.,
+    distribution = "gaussian",
+    data = Carseats[train,],
+    n.trees = 1000,
+    interaction.depth = hyper_grid$interaction.depth[i],
+    shrinkage = hyper_grid$shrinkage[i],
+    n.minobsinnode = hyper_grid$n.minobsinnode[i],
+    bag.fraction = hyper_grid$bag.fraction[i],
+    train.fraction=.75,
+    n.cores = NULL, # will use all cores by default
+    verbose = FALSE
+  )
+  
+  # add min training error and trees to grid
+  hyper_grid$optimal_trees[i] <- which.min(gbm.tune$valid.error)
+  hyper_grid$min_RMSE[i] <- sqrt(min(gbm.tune$valid.error))
+}
+
+#here is the results sorted by min RMSE of the models:
+library(dplyr)
+hyper_grid %>% 
+  dplyr::arrange(min_RMSE) %>%
+  head(10)
+```
+
+
+## Using the XGBoost Package
+XGBoost provides a much faster implementation of the gradient boosting machines, as it incorporates efficient solvers, parallel computation, etc. However, it does require the data to be in a specific format: it works with matrices that contain numeric variables only. It does require the data to be One-Hot Encoded, that is, categorical variables will be encoded as binary variables. For example, a categorical variable with 3 levels of "red", "blue" or "green" is encoded as three binary variables of "red", "blue" and "green". Additionally, if the variable has l levels, you only need l-1 variables, because one of the levels is basically where all other levels are zero. We also need to convert this to an xgb format. We do this below:
+
+```{r}
+#install.packages("mltools")
+library(mltools)
+library(data.table)
+
+#install.packages("xgboost")
+library(xgboost)
+
+hotCarseats1=one_hot(as.data.table(Carseats))
+
+#training set: View(hotCarseats[train,] )
+#test set: View(hotCarseats[-train,] )
+
+hotCarseats=xgb.DMatrix(data = as.matrix(hotCarseats1[,-1]), label = hotCarseats1$Sales) # the data includes the definition for label
+```
+
+Now that the data is prepared, we can create our model:
+
+```{r}
+#?xgb.cv
+set.seed(1)
+xgb1=xgb.cv(data = hotCarseats,#this is the output variable
+  nrounds = 1000, #max number of iterations
+  nfold = 5, #number of folds for cross-validation
+  #(can be used for regression only)
+  verbose = FALSE #don't want the progress to be printed
+  )
+```
+We can visualize the errors using ggplot:
+```{r}
+
+library(ggplot2)
+# plot error vs number trees
+ggplot(xgb1$evaluation_log) +
+  geom_line(aes(iter, train_rmse_mean), color = "red") +
+  geom_line(aes(iter, test_rmse_mean), color = "blue")
+
+```
+
+We can tell XGB to stop continuing if no improvements are made for a certain number of consecutive trees to speed up the process.
+```{r}
+
+set.seed(1)
+xgb2=xgb.cv(data = hotCarseats,
+  nrounds = 1000, nfold = 5,
+  verbose = FALSE, early_stopping_rounds = 5 # stop after 5 consecutive trees 
+  #without any improvement
+)
+# plot error vs number trees
+ggplot(xgb2$evaluation_log) +
+  geom_line(aes(iter, train_rmse_mean), color = "red") +
+  geom_line(aes(iter, test_rmse_mean), color = "blue")
+```
+
+We now create a model without cross-validation and then look at the variable importance and its performance:
+
+```{r}
+set.seed(1)
+
+xgb3 = xgboost(x = hotCarseats1[train,-1], y=hotCarseats1[train,1],
+  nrounds = 1000)
+
+importance_matrix=xgb.importance(model = xgb3)
+
+#?xgb.plot.importance
+xgb.plot.importance(importance_matrix, top_n = 10)
+
+pred = predict(xgb3, hotCarseats1[-train,-1])
+
+sqrt(mean((pred-as.numeric(hotCarseats1$Sales[-train]))^2))
+
+###comparing this to what the GBM package would have attained:
+gbm2 = gbm(Sales~., distribution = "gaussian",  data = Carseats[train,], 
+ n.trees = 1000, interaction.depth = 3,  shrinkage = 0.1, n.cores = NULL, verbose = FALSE )
+
+pred = predict(gbm2, Carseats[-train,])
+
+sqrt(mean((pred-Carseats$Sales[-train])^2))
+
+summary(gbm2, las=2)
+
+#We can see that the results are different, the trees are different because of the use of one-hot encoding for XGBoost. If we use the one-hot encoding with the GBM we get:
+
+gbm2 = gbm(Sales~., distribution = "gaussian",  data = as.data.frame(hotCarseats1[train,]), 
+ n.trees = 1000, interaction.depth = 3,  shrinkage = 0.1, n.cores = NULL, verbose = FALSE )
+
+pred = predict(gbm2, as.data.frame(hotCarseats1[-train,]))
+
+sqrt(mean((pred-Carseats$Sales[-train])^2))
+
+summary(gbm2, las=2)
+
+#which also yields different results from the XGBoost due to differences in methods.
+```
+
+There are many other packages that can create GBM models. One notable package is the h2o package, which is used for big data science and includes many prediction and ML models (formally: An open source, in-memory, distributed, ML and predictive analytics platform allowing you to build and productionize ML models). We will get to h2o when we talk about ML later in the course.
+
+# AdaBoost
+
+AdaBoost is another boosting method that relies on stumps (trees of size 2) and bootstrapping. There are many tools that allow you to create AdaBoost models. Here, we use the "adabag" library on the "UCI_Default" dataset.
+
+```{r}
+library(data.table)
+#install.packages("adabag")
+library(adabag)
+
+#need to define classes of data when reading it
+def=fread("UCI_Default.csv",header = TRUE,
+          colClasses = c("numeric","numeric","factor","factor",
+                         "factor","numeric","factor","factor",
+                         "factor","factor","factor","factor",
+                         "factor"))
+
+
+set.seed(1)
+train=sample(nrow(def),.8*nrow(def),replace = FALSE)
+
+#?boosting
+#create the adaboost model for predicting default. 
+Ada1=boosting(default~.-ID,data = def, subset=train, 
+              boos = TRUE, #determines whether boosting is done
+              mfinal = 10 #the number of trees (stumps) to use
+              )
+#we can take a look at an example tree
+Ada1$trees[1] 
+
+#now that the model is created, we can predict default for test set.
+Ada1_pred=predict(Ada1,def[-train,])
+
+names(Ada1_pred)
+
+#the accuracy measures are included in the prediction
+Ada1_pred$confusion
+Ada1_pred$error
+
+#another way to calculate accuracy and confusion matrix
+mean(Ada1_pred$class==def$default[-train])
+table(Ada1_pred$class,def$default[-train])
+
+#There is also a function to do cross-validation with adaboost:
+#?boosting.cv
+Ada1cv=boosting.cv(default~.-ID,data = def, boos = TRUE, mfinal = 10, 
+                   v=5 #this is the number of folds
+                   )
+Ada1cv$confusion
+
+Ada1cv$error
+```

@@ -1,0 +1,237 @@
+---
+title: "Clustering"
+author: "University of Calgary - DATA 614"
+date: "March 12, 2026"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE, echo = TRUE)
+#install.packages("formatR")
+library(formatR)
+#rm(list=ls())
+```
+# Clustering
+
+## K-Means Clustering
+
+```{r}
+rm(list=ls())
+library(data.table)
+activity=fread("Activity2SampleClustering.csv")
+activity
+
+#Remember that this is an unsupervised learning method, so there is no output variable.
+
+dim(activity)
+```
+
+It is usually a good idea to scale the data. However, in this dataset, the variables are fairly close in terms of the size and scale, so we can also try without scaling the data.
+
+We use the kmeans() function to cluster the data.
+
+```{r}
+#?kmeans
+km=kmeans(activity,4,nstart = 20)
+```
+
+The argument "nstart" is how many times to run the k-means. Then the best one is reported. This good way to not get caught in a local optimum. 
+
+How does it know which one is best? dissimilarity within clusters.
+
+```{r}
+names(km)
+
+#km
+
+km$cluster
+km$centers
+
+km$withinss
+km$tot.withinss
+
+plot(activity,col=(km$cluster),main="K-means Clustering, K=4",pch=19, cex=1)
+#pch is the plotting symbols. For example, you can choose to have
+#crosses instead of dots for data points. Search to find the numbers 
+#for each shape
+#cex is for the size of data point symbols
+```
+
+
+## Hierarchical Clustering
+
+```{r}
+activity=fread("Activity2SampleClustering.csv")
+activity
+
+#select the first 25
+activity2=activity[1:25,]
+
+dim(activity2)
+ 
+A=dist(activity2)  
+A
+#this function is used to calculate distances, in this case, the Euclidean distance
+#?dist
+
+#using euclidean distance as dissimilarity
+#using complete linkage
+hc_comp=hclust(dist(activity2),method = "complete")
+
+# if we want to scale the data as well:
+# hc_comp=hclust(dist(scale(activity2)),method = "complete")
+
+#using average linkage
+hc_avg=hclust(dist(activity2),method = "average")
+
+# now we can plot the dendrograms
+par(mfrow=c(1,2))
+plot(hc_comp,main="Complete Linkage", xlab="", ylab="")
+plot(hc_avg,main="Average Linkage", xlab="", ylab="")
+```
+
+We can now use the cutree() function to cut the tree and get the clusters for each observation. This function can be used to cut the tree to get k clusters or at dissimilarity measure of h.
+
+```{r}
+#?cutree
+
+#can cut the tree to get a specific number of clusters
+cutree(hc_comp,4)
+cutree(hc_avg,4)
+
+par(mfrow=c(1,1))
+plot(hc_comp,main="Complete Linkage", xlab="", ylab="")
+
+#can cut the tree at a specific dissimilarity
+cutree(hc_comp,h=50)
+abline(h=50,col="red")
+cutree(hc_comp,h=100)
+abline(h=100,col="red")
+cutree(hc_comp,h=200)
+abline(h=200,col="red")
+```
+
+## K-Modes Clustering for Qualitative Data
+
+K-Modes clustering is similar to K-Means, but it uses modes instead of means to cluster the observations. This is used for categorical variables, where K-Means cannot be used.
+
+Here, we work on an online shopping behavior dataset, which is a modified version of the data found in \url{https://archive.ics.uci.edu/ml/datasets/Online+Shoppers+Purchasing+Intention+Dataset}. We use K-Modes on the categorical variables only:
+
+```{r}
+onlineShoppersRaw=fread("online_shoppers_intention3.csv")
+
+head(onlineShoppersRaw)
+str(onlineShoppersRaw)
+
+#Change the type of data to categorical for VisitorType
+onlineShoppersRaw$VisitorType=as.factor(onlineShoppersRaw$VisitorType)
+str(onlineShoppersRaw)
+
+#We use a random sample of 100 observations to make it easy to visualize. The analysis on the whole dataset would be the same.
+set.seed(1)
+onlineShoppers=onlineShoppersRaw[sample(nrow(onlineShoppersRaw),100,replace = FALSE),]
+
+# Select the categorical input variables only.
+onlineShoppersCat=onlineShoppers[,10:12]
+str(onlineShoppersCat)
+
+```
+
+We can now run the K-Modes function from "klaR" package on this data to get the clusters. Similar to K-Means, we should define the number of clusters (K), lets do 4 for this one.
+
+```{r}
+#install.packages("klaR")
+library(klaR)
+fit1 = kmodes(onlineShoppersCat, 4) 
+
+#can try a weighted version as well
+fit2 = kmodes(onlineShoppersCat, 4, weighted = TRUE)
+```
+
+Let's take a look at the clusters and the differences within each cluster:
+
+```{r}
+fit2$cluster
+
+fit2$withindiff
+```
+
+
+## Clustering a Mix of Quantitative and Qualitative Data
+
+We can use the "cluster" package to calculate the distance matrix between a combination of quantiative and qualitative variables, and then cluster the data. This is based on \url{https://rpubs.com/pjmurphy/269609}.
+
+```{r}
+library(cluster)
+#We use a random sample of 25 observations to make it easy to visualize. The analysis on the whole dataset would be the same.
+set.seed(1)
+onlineShoppers=onlineShoppersRaw[sample(nrow(onlineShoppersRaw),25,replace = FALSE),]
+
+# Select the input variables
+data=onlineShoppers[,1:12]
+str(data)
+
+# Change the data type for logical variables to factor as this is required for the function.
+data$SpecialDay=as.factor(data$SpecialDay)
+data$Weekend=as.factor(data$Weekend)
+str(data)
+
+#calculate the distances between responses, using the "Gower" distance
+distanceMatrix=daisy(data, metric="gower") 
+#No need to stand=T for Gower distance, because it uses its own standardization.
+```
+
+We can now create a dendrogram based on these distances, and create clusters based on either the dendrogram or using K-Means.
+
+```{r}
+fit = hclust(d=distanceMatrix, method="complete")   
+
+plot(fit, hang=-1) 
+# the hang argument set to -1 brings all observations to the same vertical level
+
+clusters = cutree(fit, k=4)   
+rect.hclust(fit, k=4, border="red") 
+
+kfit = kmeans(distanceMatrix, 4)
+
+#We can use the clusplot to plot the distances with respect to the first two PCs
+clusplot(as.matrix(distanceMatrix), kfit$cluster, color=T, shade=T, labels=2, lines=0)
+```
+
+## Clustering of Variables
+
+The package "ClustOfVar" allows clustering of qualitative and quantitative variables together. To do this, it uses the first principal component calculated by PCAmix. Here is an example on the online shopping behavior dataset.
+
+```{r}
+#install.packages("ClustOfVar")
+library(ClustOfVar)
+
+#We use a random sample of 100 observations to make it easy to visualize. The analysis on the whole dataset would be the same.
+set.seed(1)
+onlineShoppers=onlineShoppersRaw[sample(nrow(onlineShoppersRaw),100,replace = FALSE),]
+
+onlineShoppers$SpecialDay=as.factor(onlineShoppers$SpecialDay)
+onlineShoppers$Weekend=as.factor(onlineShoppers$Weekend)
+
+# Need to separate the qualitative and quantitative input variables:
+
+xquant <- onlineShoppers[,1:9] # Quantitative variables
+str(xquant)
+
+xqual <- onlineShoppers[,10:12]      # Categorical variables
+str(xqual)
+```
+
+Now we can run either hierarchical or k-Means on the data.
+
+```{r}
+tree = hclustvar(xquant, xqual)
+plot(tree)
+
+kfit = kmeansvar(xquant, xqual[,2:3],  init=4) 
+#There seems to a known problem with this function that does not allow me to use all three categorical variables, it thinks that variables 1 and 3 in there have the same name. Let's work with two variables instead.
+
+summary(kfit)
+
+kfit$cluster
+```

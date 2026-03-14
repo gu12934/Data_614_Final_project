@@ -1,0 +1,404 @@
+---
+title: "Classification"
+author: "DATA 614 - University of Calgary"
+date: "March 5, 2026"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Naive Bayes Classifier
+We are going to use Naive Bayes classifier for predicting whether or not online shoppers on an ecommerce website actually purchase a product. This data is a slightly modified version of the data from \url{https://archive.ics.uci.edu/ml/datasets/Online+Shoppers+Purchasing+Intention+Dataset}.
+
+```{r}
+shoppingInt=read.csv("online_shoppers_intention2.csv")
+
+summary(shoppingInt)
+set.seed(1)
+train=sample(nrow(shoppingInt),10000,replace = FALSE)
+library(e1071)
+
+#?naiveBayes
+NB1=naiveBayes(Revenue~ .,data=shoppingInt ,subset=train)
+
+#look at the results:
+NB1
+
+NB_predict=predict(NB1,shoppingInt[-train,])
+# Can use the argument type="raw" to get the probabilities rather than the
+# classes based on Bayes decision boundary.
+
+#now need to calculate accuracy
+mean(NB_predict == shoppingInt$Revenue[-train])
+
+table(NB_predict,shoppingInt$Revenue[-train])
+```
+For Naive Bayes, you can also use the "mlr" package, which gives you more options to play with. Refer to \url{https://www.r-bloggers.com/understanding-naive-bayes-classifier-using-r/} for more information on this.
+
+# KNN
+Classify the car transmission (am: automatic=0 or manual=1) using horsepower (hp) and weight (wt).
+Use the first 20 instances as training set and the rest (12) as test set.
+
+Note that the knn() function does not scale the data, so we need to scale the data first. When scaling the data, we first scale the training set. Then use the same scaling mean and standard deviation to scale the test set.
+
+```{r}
+#create the required inputs
+
+train_in=cbind(mtcars$hp ,mtcars$wt)[1:20 ,] #training set inputs
+test_in=cbind(mtcars$hp ,mtcars$wt)[21:32 ,] #test set inputs
+train_out =mtcars$am[1:20 ]   #training set outputs
+test_out=mtcars$am[21:32 ]  #test set outputs
+
+#Scale the training set
+train_inSC=scale(train_in)
+
+#Retain the means and standard deviations from the training set. 
+#We will use them to scale the test set according to the same scaling as the training set.
+means=attr(train_inSC,"scaled:center")
+sds=attr(train_inSC,"scaled:scale")
+
+#Now scale the test set according to the training set.
+test_inSC=scale(test_in,center = means, scale = sds)
+
+#Now we can create the models
+set.seed(1)
+library(class)
+knn_pred=knn (train_inSC,test_inSC,train_out ,k=1)
+
+#look at the results:
+knn_pred
+
+#now need to calculate accuracy
+mean(knn_pred == test_out)
+
+knn_pred2=knn(train_inSC,test_inSC,train_out,k=2)
+
+mean(knn_pred2 == test_out)
+
+knn_pred3=knn(train_inSC,test_inSC,train_out,k=3)
+
+mean(knn_pred3 == test_out)
+
+knn_pred4=knn(train_inSC,test_inSC,train_out,k=4)
+
+mean(knn_pred4 == test_out)
+
+###plot the training and test data (for k=3). We can plot based on the scaled data first:
+
+
+# Create plot -- This is to plot all the points (both training and test sets) 
+plot(rbind(train_inSC, test_inSC), xlab = "HP", ylab = "Weight")
+#put labels on training data (in blue)
+text(train_inSC,labels=train_out, cex=0.7, pos = 1,col = "blue")
+
+#put labels on test data, green where the prediction is correct,
+#red where prediction is incorrect 
+#(Code courtesy of Jeremy Hansen <jeremy.hansen@ucalgary.ca>)
+text(test_inSC,labels=knn_pred3, cex=0.7, pos = 1,col
+     =ifelse((knn_pred3==test_out), 'green', 'red'))
+
+### The same plot with actual (non-scaled data):
+plot(rbind(train_in, test_in), xlab = "HP", ylab = "Weight")
+text(train_in,labels=train_out, cex=0.7, pos = 1,col = "blue")
+text(test_in,labels=knn_pred3, cex=0.7, pos = 1,col
+     =ifelse((knn_pred3==test_out), 'green', 'red'))
+```
+
+Another example for predicting whether or not online shoppers actually buy from the previous dataset, without scaling the data (you can try scaling and see if the results are better). We can only focus on the numerical variables when using KNN, so we are not going to use the "VisitorType" and "Weekend" variables.
+
+```{r}
+shoppingInt=read.csv("online_shoppers_intention2.csv")
+
+summary(shoppingInt)
+
+dim(shoppingInt)
+
+sum(is.na(shoppingInt))
+
+set.seed(1)
+train=sample(nrow(shoppingInt),10000,replace = FALSE)
+#create the required inputs
+train_in=shoppingInt[train,-c(11,12,13)]
+test_in=shoppingInt[-train,-c(11,12,13)]
+
+train_out =shoppingInt$Revenue[train]
+test_out =shoppingInt$Revenue[-train]
+
+set.seed(1)
+library(class)
+knn_pred=knn (train_in,test_in,train_out ,k=1)
+
+#look at the results (long!):
+#knn_pred
+
+#now need to calculate accuracy
+mean(knn_pred == test_out)
+
+
+knn_pred2=knn(train_in,test_in,train_out,k=2)
+
+mean(knn_pred2 == test_out)
+
+knn_pred3=knn(train_in,test_in,train_out,k=3)
+
+mean(knn_pred3 == test_out)
+
+knn_pred4=knn(train_in,test_in,train_out,k=4)
+
+mean(knn_pred4 == test_out)
+
+### Create plot -- This is to plot all the points (both training and test sets)
+# Can do it for 2 variables at a time. Do it just for the first 50 observations 
+# to keep it manageable.
+plot(rbind(train_in[1:50,c(2,6)], test_in[1:50,c(2,6)]), xlab = "Administrative_Duration", ylab = "ProductRelated_Duration")
+text(train_in[1:50,c(2,6)],labels=train_out[1:50], cex=0.7, pos = 1,col = "blue")
+text(test_in[1:50,c(2,6)],labels=knn_pred3[1:50], cex=0.7, pos = 1,col
+     =ifelse((knn_pred3==test_out), 'green', 'red'))
+```
+
+
+
+# Logistic regression
+
+```{r}
+
+rm(list=ls())
+
+logistic1 = glm(formula=am ~ hp + wt + as.factor(vs), 
+           data=mtcars, family=binomial)
+
+logistic1
+summary(logistic1)
+logistic1$coefficients
+
+#calculate for hp=100, wt=2, vs=0
+Pam=exp(logistic1$coefficients[[1]]+100*logistic1$coefficients[[2]]
+        +2*logistic1$coefficients[[3]]+0*logistic1$coefficients[[4]])/
+  (1+exp(logistic1$coefficients[[1]]+100*logistic1$coefficients[[2]]
+         +2*logistic1$coefficients[[3]]+0*logistic1$coefficients[[4]]))
+Pam
+
+# This is an example of supervised learning, 
+# where the model is first trained using training data
+
+newdata = data.frame(hp=100, wt=2, vs=0)
+predict(logistic1, newdata, type="response")
+
+```
+
+As another example, let's predict the default of loan applicants from a default dataset (\url{https://www.kaggle.com/uciml/default-of-credit-card-clients-dataset}).
+
+```{r}
+
+library(data.table)
+def=fread("UCI_Default.csv",header = TRUE)
+#need to define classes of data when reading it
+def=fread("UCI_Default.csv",header = TRUE,
+          colClasses = c("numeric","numeric","factor","factor",
+                         "factor","numeric","factor","factor",
+                         "factor","factor","factor","factor",
+                         "factor"))
+
+dim(def)
+
+#?fread
+def
+summary(def)
+logistic2 = glm(formula=default ~ .-ID, data=def, subset =1:20000,  
+           family=binomial)
+Probit1 = glm(formula=default ~ .-ID, data=def, subset =1:30000,  
+           family=binomial(link = "probit"))
+summary(logistic2)
+
+newdata = def[20001:30000,]
+summary(newdata)
+pred_data=predict(logistic2, newdata, type="response")
+
+#calculate predicted 0 or 1 based on probabilities
+pred_data2=rep(0,10000)
+#View(pred_data2)
+pred_data2[pred_data>0.5]=1
+pred_data3=cbind(pred_data,pred_data2)
+#View(pred_data3)
+
+#calculate accuracies
+mean(newdata$default==pred_data2)
+
+#confusion matrix
+table(pred_data2,newdata$default)
+
+#another way to calculate accuracy  
+(table(pred_data2,newdata$default)[1,1]+table(pred_data2,newdata$default)[2,2])/length(pred_data2)
+
+
+#if a threshold of 0.25 was chosen instead:
+pred_data3=rep(0,10000)
+#View(pred_data2)
+pred_data3[pred_data>0.25]=1
+
+#calculate accuracies
+mean(newdata$default==pred_data3)
+
+#confusion matrix
+table(pred_data3,newdata$default)
+
+```
+Now let's create the ROC and calculate the area under the curve for our model. We will use the "ROCR" library for this"
+
+```{r}
+#install.packages("ROCR")
+library(ROCR)
+
+#first, find the tradeoff between accuracy and cutoff
+pred=prediction(as.numeric(pred_data),as.numeric(newdata$default))
+perf=performance(pred,"acc")
+
+plot(perf)
+
+#we can try another measurement
+
+pred=prediction(as.numeric(pred_data),as.numeric(newdata$default))
+perf=performance(pred,"fpr")
+
+plot(perf)
+
+pred=prediction(as.numeric(pred_data),as.numeric(newdata$default))
+perf=performance(pred,"tpr")
+
+plot(perf)
+
+# Now draw the roc
+
+roc = performance(pred,"tpr","fpr")
+plot(roc, lwd = 2,xlim=c(0,1), ylim=c(0,1))
+abline(a = 0, b = 1) 
+
+# Our model seems to be doing OK.
+
+# Now calculate the AUC:
+auc = performance(pred, measure = "auc")
+
+typeof(auc)
+
+auc@y.values
+
+
+# This is not bad! Generally, ROC is mainly a comparative tool used to compare between different models.
+```
+Note that we did not sample the data in our main model. If we wanted to sample, this is what we should have done:
+
+```{r}
+#use sample instead of first 20k
+sub=sample(nrow(def), 20000,replace = FALSE)
+logistic3 = glm(formula=default ~ .-ID, data=def, subset =sub,  
+           family=binomial)
+newdata = def[-sub,]
+#?sample
+
+#problem: data we did not see before
+#pred_data=predict(logistic3, newdata, type="response")
+```
+This may cause a problem: predicting an observation with a categorical variable that was not seen in the test set. You may need to use creative ways to solve this issue. We will talk about this more when we discuss sampling and cross-validation.
+
+# LDA
+
+```{r}
+rm(list=ls())
+#mtcars
+
+dim(mtcars)
+library(MASS)
+lda0=lda(cyl~mpg+disp ,data=mtcars, subset =1:20)
+lda0
+```
+*prior probabilities*: the ratio of groups in observations in training set
+
+*Group means*: means of values in each group
+
+*Coefficients of LDs*: these are the estimates done by LDA for boundaries of the three classes. 
+
+*Proportion of trace*: it is the proportion of between-class variance that is explained by the discriminant functions (LD1 and LD2)
+```{r}
+plot(lda0) # this plots the linear discriminants for each observation 
+#in the training set.
+
+lda0_pred=predict(lda0,mtcars[21:32,]) #predict the classes using the LDA 
+#model for the test set
+
+names(lda0_pred)
+
+```
+"class" provides the predicted classes. 
+
+"posterior" provides the posterior probabilities, which are the conditional probabilities for an observation to belong to each class based on the predictors. 
+
+"x" provides the linear discriminant function values for each observation, which is calculated as mpg\*ld1mpg+disp\*ld1disp, where ld1mpg and ld1disp are the coefficients for LDA1. Similarly, this can be calculated for LDA2.
+
+```{r}
+A=cbind(lda0_pred$posterior,levels(lda0_pred$class)[lda0_pred$class])
+#View(A)
+
+#View(lda0_pred$x)
+
+#plot the histogram of the first discriminant data along with the classes
+plot(lda0, dimen=1, type="both") # this does both histogram and density
+#if you want either histogram or density separately, can susbsitute
+# "density" or "histogram" instead of "both"
+
+#calculate accuracy
+mean(lda0_pred$class==mtcars$cyl[21:32])
+
+#confusion matrix
+table(lda0_pred$class,mtcars$cyl[21:32])
+
+# Plot the classes based on the two LDs 
+par(mfrow=c(1,2))
+
+plot(lda0, xlim = c(-4,4),ylim = c(-4,4)) # this plots the linear discriminants for each 
+#observation in the training set.
+
+plot(lda0_pred$x, xlim = c(-4,4),ylim = c(-4,4)) # this plots the linear discriminants for 
+#each observation in the test set.
+text(lda0_pred$x, labels=lda0_pred$class, cex= 0.7,pos=2)
+
+#looking at the classes. This is a good way to see the data and classification in action
+# install.packages("klaR")
+
+library(klaR)
+class(mtcars$cyl)
+mtcars$cyl=as.factor(mtcars$cyl)
+#?partimat
+
+partimat(cyl~mpg+disp ,data=mtcars, subset =1:20,method="lda")
+```
+
+# QDA
+
+```{r}
+qda0=qda(cyl~mpg+disp ,data=mtcars, subset =1:20 )
+qda0
+
+names(qda0)
+qda0_pred=predict(qda0,mtcars[21:32,])
+names(qda0_pred)
+
+plot(qda0_pred$class)
+mean(qda0_pred$class==mtcars$cyl[21:32])
+
+#confusion matrix
+table(qda0_pred$class,mtcars$cyl[21:32])
+
+#looking at the classes. This is a good way to see the data and classification in action
+# install.packages("klaR")
+library(klaR)
+class(mtcars$cyl)
+mtcars$cyl=as.factor(mtcars$cyl)
+#?partimat
+
+partimat(cyl~mpg+disp ,data=mtcars, subset =1:20,method="qda")
+```
+
+
+

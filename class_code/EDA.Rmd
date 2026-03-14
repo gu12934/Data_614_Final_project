@@ -1,0 +1,137 @@
+---
+title: "Exploratory Data Analysis"
+author: "DATA 614 - University of Calgary"
+date: "March 3, 2026"
+output: pdf_document
+---
+
+# 4-plot for testing assumptions:
+
+```{r}
+
+library(data.table)
+## another example
+souvenier=fread("souvenier.csv")
+
+
+souvenier=ts(souvenier,frequency = 12, start =c(1987,1)) 
+# use ?ts to find about the arguments
+# tells R that the time series is monthly and starts at month 1 of 1987. 
+souvenier
+plot(souvenier) #sequence plot
+
+logsouv=log(souvenier)  #sometimes looking at the log values helps!
+
+plot(logsouv)
+lag.plot(souvenier,labels = FALSE,do.lines = FALSE)
+hist(souvenier)
+
+qqnorm(souvenier) # Q-Q plot for testing if the distribution is normal
+qqline(souvenier) # Q-Q line for comparison
+```
+
+# Autocorrelation
+With autocorrelation graphs, we are looking to see if the data is random or not. If it is random, then the data will be within the bounds. 
+
+```{r}
+acf(souvenier)
+
+# There is some autocorrelation, meaning that the data points are correlated to the lagged values. 
+# What does this mean?
+```
+
+# Box plot
+Gives the IQR, as well as outliers, if any. Also looking for trends or insights.
+```{r}
+boxplot(souvenier)
+
+boxplot(mpg~cyl,data=mtcars, xlab="# of Cylinders", ylab="MPG")
+#could also do it this way
+plot(as.factor(mtcars$cyl),mtcars$mpg)
+
+class(mtcars$cyl)
+```
+
+# Scatter plot
+Can show trends, non-randomness, changing mean and variation, ...
+```{r}
+plot(mtcars$mpg,mtcars$hp)
+abline(lm(mtcars$hp~mtcars$mpg))
+
+```
+
+# Q-Q plot
+```{r}
+qqnorm(mtcars$mpg)
+qqline(mtcars$mpg)
+
+#looking at some basic measures
+
+mean(mtcars$mpg)
+sd(mtcars$mpg)
+
+```
+
+# Confidence interval
+Lets look at 95% confidence intervals
+
+```{r}
+nrow(mtcars)
+
+#Assuming that mtcars$mpg is normal: from the previous q-q plot
+
+e=qnorm(0.975)*sd(mtcars$mpg)/sqrt(nrow(mtcars))
+e
+
+left = mean(mtcars$mpg)-e
+right = mean(mtcars$mpg)+e
+left
+right
+```
+
+# Homoskedasticity
+This is about homogeneity of the variations. Is the variation fixed?
+
+```{r}
+mtcars$mpg[1:16]
+mtcars$mpg[17:32]
+var.test(mtcars$mpg[1:16],mtcars$mpg[17:32])
+```
+
+# Two sample t-test
+```{r}
+carsttest=t.test(mtcars$mpg[1:16],mtcars$mpg[17:32], var.equal=FALSE, paired=FALSE)
+carsttest
+```
+
+# Finding outliers
+```{r}
+
+ad=fread("ad.csv")
+
+boxplot(ad)
+
+boxplot.stats(ad$TV)$out
+boxplot.stats(ad$newspaper)$out
+
+#install.packages("outliers",repos="http://cran.us.r-project.org")
+library(outliers)
+
+#try this: ?outlier
+outlier(ad$newspaper)
+
+scores(ad$newspaper, type="z", prob=0.9)
+
+ad$newspaper[scores(ad$newspaper, type="t", prob=0.9)]
+
+ad$newspaper[!scores(ad$newspaper, type="t", prob=0.9)]
+
+#using IQR
+IQR(mtcars$mpg)
+
+quantile(ad$newspaper,probs=c(.05))
+
+ad$newspaper[ad$newspaper>quantile(ad$newspaper,probs=c(.05))&
+               ad$newspaper<quantile(ad$newspaper,probs=c(.95))]
+
+```

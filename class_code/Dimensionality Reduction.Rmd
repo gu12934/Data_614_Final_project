@@ -1,0 +1,393 @@
+---
+title: "Dimensionality Reduction"
+author: "University of Calgary - DATA 614"
+date: "March 10, 2026"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE, echo = TRUE)
+#install.packages("formatR")
+library(formatR)
+#rm(list=ls())
+```
+
+# Principle Component Analysis (PCA)
+
+```{r cars}
+rm(list=ls())
+library(data.table)
+ad=fread("ad.csv")
+ad
+```
+
+Lets remove the V1 column from the data. You can try either of the following.
+
+```{r}
+# there are different ways to do this:
+ad2=cbind(ad$TV,ad$radio,ad$newspaper,ad$sales) 
+#this is not preferred, as it loses the variable titles
+ad2=ad[,c("TV","radio","newspaper","sales")]
+ad2=ad[,-c("V1")]
+ad2=ad[,2:5]
+```
+
+Note that if PCA is used just for dimensionality reduction, you may want to remove the "sales" variable and do the PCA only on the input variables. Given that this dataset does not have many dimensions, we are going to use the sales variable for the PCA.
+
+We can check the data a bit:
+
+```{r}
+names(ad2)
+
+summary(ad2)
+
+dim(ad2)
+```
+
+Let's also look at the mean, variation, and standard deviation of each variable within the data. We can use the apply() function to quickly calculate these measures for all columns.
+
+```{r}
+apply(ad2,2,mean)
+apply(ad2,2,var)
+apply(ad2,2,sd)
+```
+
+We use the prcomp() function to do the PCA.
+```{r}
+#?prcomp
+pca=prcomp(ad2, scale = TRUE, center = TRUE)
+```
+Scaling is important for PCA, and it is not TRUE by default, so make sure you set it to TRUE. In some cases where the measurements are the same for all variables, it may be OK not to scale the data. Centering is also important, but is turned on by default.
+
+```{r}
+names(pca)
+
+pca$center #means of the variables
+pca$scale #standard deviation of the variables
+
+pca$sdev #standard deviation of the PCs
+
+pca$rotation #loadings
+```
+
+There are 4 PCs, which is expected. There are generally min(n-1,p) PCs in a dataset with n observations and p variables.
+
+We can now calculate PC scores for the all observations using the loadings (from $rotation) and the variable values. For example, this is how PC1 is calculated for the first observation:
+
+```{r}
+#remember that we need to normalize or scale the data first.
+adSc=scale(ad2)  
+
+pca$rotation[1,1]*adSc[1,1]+pca$rotation[2,1]*adSc[1,2]+pca$rotation[3,1]*adSc[1,3]+pca$rotation[4,1]*adSc[1,4]
+```
+
+This is also calculated by the prcomp() function:
+```{r}
+pca$x[1,1]
+```
+
+The PC scores for the dataset is given in 
+```{r}
+# pca$x has the 200 observations in terms of PCs. 
+
+```
+
+This is the transformed dataset. This can now be used to create other models or visualize the data with 2 or 3 PCs (if the number of variables was too large)
+
+We can also create a biplot of observations in terms of PC scores and the loadings for variables.
+```{r}
+#?biplot
+par(mfrow=c(1,1))
+biplot(pca)
+```
+
+While the PCs are unique, there is another PC in the opposite direction which is calculated by multiplying everything by -1.
+```{r}
+pca2=pca
+pca2$rotation=-pca$rotation
+pca2$x=-pca$x
+biplot(pca2, scale=0)
+```
+
+We can calculate the importance of the PCs in terms of proportion of variation explained (PVE) and plot them.
+```{r}
+pca$sdev #st dev of each of the PCs
+
+#variance is the power of two of the standard deviation
+pcaVar=pca$sdev^2
+
+pve=pcaVar/sum(pcaVar)
+
+pve
+
+cumsum(pve)
+
+sum(pve)
+
+par(mfrow=c(1,2))
+plot(pve,xlab="PC", ylab="PVE", type="b",ylim=c(0,1))
+
+plot(cumsum(pve),xlab="PC", ylab="Cumulative PVE", type="b",ylim=c(0,1))
+
+#can also use $importance to get these directly
+summary(pca)$importance
+```
+
+# Factor Analysis (FA)
+
+Lets try the FA for a survey data on 90 responses for 14 different variables that customers consider while purchasing car. This data is from \url{https://www.promptcloud.com/blog/exploratory-factor-analysis-in-r/}.
+```{r}
+dataCars=read.csv("EFA.csv")
+```
+
+We use the factanal() function to do the FA.
+```{r}
+#install.packages("psych")
+library(psych)
+#?factanal
+fa=factanal(dataCars,9, rotation = "varimax")
+
+```
+Now we can take a look at the results.
+
+```{r}
+fa
+names(fa)
+
+fa$correlation #correlation matrix
+fa$uniquenesses #uniqueness of the observations in each variable
+
+fa$loadings #loadings 
+
+```
+Looking at these factors, there are some interesting observations: Factor 1 seems to be general quality of a car, with a focus on comfort and fuel type. Factor 2 is mainly about the color. Factor 3 is about value (price, resale value, maintenance, fuel efficiency, etc.). Similar interpretations can be made for the rest of the factors, though they may seem a bit more vague. In this step, strong domain knowledge is required. 
+
+The question here is how many factors do we need? We can use two methods: Kaiser criterion and scree plot. Refer to \url{http://www.stat-help.com/factor.pdf} for additional explanation.
+```{r}
+#calculate the eigen vectors and values
+CarsEigen=eigen(cor(dataCars))
+
+#the eigenvalues are provided in:
+CarsEigen$values
+
+# we can see how many are higher than 1 (Kaiser criterion): 5
+```
+It can be seen that there are 5 eigenvalues that are higher than 1. Remember that an eigenvalue higher than 1 means that this factor explains more variation in the data than a single variable.
+
+Now using scree plot to determine the number of factors needed:
+
+```{r}
+# we can first divide the eigenvalues by total to rescale them:
+
+EigenSC=CarsEigen$values/sum(CarsEigen$values)
+
+plot(EigenSC, type="b")
+```
+It can be seen that the elbow is happening at either 3 or 5 factors. Let's look at the factor analysis for 5 factors.
+
+
+```{r}
+
+fa5=factanal(dataCars,5, rotation = "varimax")
+
+fa5
+```
+It can be seen that the factors are different if the number of factors change.
+
+# PCA for Mixed Data (factor analysis of mixed data, FAMD)
+
+The classic PCA method is useful for quantitative/numerical data only. While it is possible to separate the qualitative variables in the dataset and only perform the PCA on numerical variables in a dataset, one may want to reduce the dimension of the dataset as a whole, considering both quantitative and qualitative variables. One method that allows us to do this is factor analysis of mixed data (FAMD). There are a few packages in R that allow you to do this.
+
+It is important that the data is normalized for such analysis, and the packages we use automatically do this. Here, we use the "FactoMineR" (and the related "factoextra") packages. This section is based on \url{http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/114-mca-multiple-correspondence-analysis-in-r-essentials/} and \url{http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/115-famd-factor-analysis-of-mixed-data-in-r-essentials/}.
+
+We work on an online shopping behavior dataset, which is a modified version of the data found in \url{https://archive.ics.uci.edu/ml/datasets/Online+Shoppers+Purchasing+Intention+Dataset}. We will first conduct PCA on quantitative variables within the dataset, then do MCA on qualitative variables within the dataset, and finally combine both in factor analysis of mixed data (FAMD).
+
+```{r}
+library(data.table)
+onlineShoppersRaw=fread("online_shoppers_intention3.csv")
+
+head(onlineShoppersRaw)
+str(onlineShoppersRaw)
+
+#Change the type of data to categorical for VisitorType
+onlineShoppersRaw$VisitorType=as.factor(onlineShoppersRaw$VisitorType)
+
+#We use a random sample of 100 observations to make it easy to visualize. The analysis on the whole dataset would be the same.
+set.seed(1)
+onlineShoppers=onlineShoppersRaw[sample(nrow(onlineShoppersRaw),100,replace = FALSE),]
+```
+
+# PCA
+PCA can be performed only on quantitative variables, which we choose below. The "FactoMineR" package also includes a function for PCA (try PCA with capital letters), here, we use the prcomp() function from the base stats library that we are familiar with.
+
+```{r}
+#dataset containing quantitative variables only
+onlineShoppersNum=onlineShoppers[,1:9]
+
+#run the PCA
+pca1=prcomp(onlineShoppersNum, scale = TRUE, center = TRUE)
+names(pca1)
+
+pca1$rotation #loadings 
+pca1$sdev #st dev of each of the PCs
+
+pcaVar=pca1$sdev^2
+
+pve=pcaVar/sum(pcaVar)
+
+plot(pve,xlab="PC", ylab="PVE", type="b",ylim=c(0,1))
+
+plot(cumsum(pve),xlab="PC", ylab="Cumulative PVE", type="b",ylim=c(0,1))
+
+#can also use $importance to get these directly
+summary(pca1)$importance
+
+#plot the biplot
+biplot(pca1, scale=0)
+
+#plot the rotated values with coloring for the revenue (output variable)
+plot(pca1$x,col=ifelse(onlineShoppers$Revenue==TRUE,1,2),pch=18,cex=.5)
+
+```
+It can be seen that the users who bought something from the website (Revenue=FALSE, shown with red color) generally have lower values of PC1 and higher values of PC2.
+
+# MCA
+
+Let's first take a look at the frequency of each category within each of the three qualitative variables in our data (Weekend, SpecialDay, and VisitorType).
+
+```{r}
+barplot(table(onlineShoppers$Weekend)/nrow(onlineShoppers))
+barplot(table(onlineShoppers$SpecialDay)/nrow(onlineShoppers))
+barplot(table(onlineShoppers$VisitorType)/nrow(onlineShoppers))
+```
+
+Next, we focus on the three categorical variables, and perform the MCA.
+
+```{r}
+#install.packages("FactoMineR")
+#install.packages("factoextra")
+library(FactoMineR)
+library(factoextra)
+
+# Select the categorical variables only + the output. We will not perform 
+# MCA on the output, but want to have it our dataset.
+onlineShoppersCat=onlineShoppers[,10:13]
+str(onlineShoppersCat)
+
+#create the MCA model.
+#?MCA
+mca1=MCA(onlineShoppersCat,graph=FALSE,quali.sup=4) 
+# we do not include the variable Revenue as it is an output variable,
+# but would want to keep it in the figures as we will see later.
+#mca1=MCA(onlineShoppersCat,quali.sup=4) #with graphs printed
+
+# Understanding how many dimensions there can be in a MCA model is a bit tricky, there is 
+# a function that allows estimation of this: https://rdrr.io/cran/missMDA/man/estim_ncpMCA.html
+
+mca1$var
+# $coord is the new coordinates for the variables,
+# $contrib is the amount of contributions from each category 
+# from variables to the dimensions in %
+# $cos2 The quality of the representation is called the squared cosine (cos2),
+# which measures the degree of association between variable categories and 
+# a particular axis.   
+
+# To visualize the percentages of variation (called inertia) explained by each MCA
+# dimensions:
+fviz_screeplot(mca1, addlabels = TRUE)
+
+#to plot the biplot:
+fviz_mca_biplot(mca1, repel=TRUE,# avoid text overlapping (is slow)
+                ggtheme = theme_minimal())
+
+```
+
+We can look at the correlation between variables and principal components:
+```{r}
+fviz_mca_var(mca1, choice = "mca.cor", 
+            repel = TRUE,# avoid text overlapping (is slow)
+            ggtheme = theme_minimal())
+```
+
+and between variable categories and principal components:
+```{r}
+
+fviz_mca_var(mca1, 
+             repel = TRUE,# avoid text overlapping (is slow)
+             ggtheme = theme_minimal())
+
+```
+We can add colors to the map based on the cos2 values (quality on the factor map, or the correlation between a variable and the dimensions) or contribution values for either variables or individuals:
+
+```{r}
+# for variables
+fviz_mca_var(mca1, col.var = "cos2",
+             repel = TRUE,# avoid text overlapping (is slow)
+             ggtheme = theme_minimal())
+# for variables based on contrib
+fviz_mca_var(mca1, col.var = "contrib",
+             repel = TRUE,# avoid text overlapping (is slow)
+             ggtheme = theme_minimal())
+
+#for individuals
+fviz_mca_ind(mca1, col.ind = "cos2", 
+             repel = TRUE,# avoid text overlapping (is slow)
+             ggtheme = theme_minimal())
+
+```
+We can also include the output variable (Revenue) for individuals:
+```{r}
+fviz_mca_ind(mca1, 
+             label = "none", # hide individual labels
+             habillage = "Revenue", # color by groups
+             addEllipses = TRUE, ellipse.type = "confidence",
+             ggtheme = theme_minimal()) 
+
+```
+
+# FAMD
+Now we can combine the PCA and MCA to get to FAMD. By we, I mean the "FactoMineR" package! We use the dataset that includes both quantitative and qualitative variables.
+
+```{r}
+#Combining PCA and MCA:
+#?FAMD
+str(onlineShoppers)
+famd1=FAMD(onlineShoppers,sup.var = 13,graph=FALSE)
+
+famd1$var
+
+# Looking at the new famd dimensions
+fviz_famd_var(famd1, repel = TRUE)
+
+# Contribution to the first dimension
+fviz_contrib(famd1, "var", axes = 1)
+# Contribution to the second dimension
+fviz_contrib(famd1, "var", axes = 2)
+```
+
+We can look at the eigenvalues to find the proportion of variances retained by the different variables (either quantitative or qualitative) and create the scree plot.
+
+```{r}
+eig = get_eigenvalue(famd1)
+
+fviz_screeplot(famd1)
+```
+
+We can take a look at the contribution of the each variable to the proportion of variation explained:
+```{r}
+fviz_famd_var(famd1, col.var = "contrib" ) #all together
+fviz_famd_var(famd1, "quali.var", col.var = "contrib" ) #qualitative only
+fviz_famd_var(famd1, "quanti.var", col.var = "contrib" ) #quantitative only
+```
+
+Or we can put individual users on the two new dimensions and show the separate categories at the same time.
+```{r}
+fviz_mfa_ind(famd1, label = "none",
+             habillage = "Revenue", # color by groups 
+             addEllipses = TRUE, ellipse.type = "confidence", 
+             repel = TRUE# avoid text overlapping (is slow)
+             ) 
+```
+Another package that can do PCA/MCA for mixed data is called PCAmixdata. You can find more information on this package at \url{https://cran.r-project.org/web/packages/PCAmixdata/vignettes/PCAmixdata.html} and \url{https://nextjournal.com/pc-methods/calculate-pc-mixed-data}
+
+
