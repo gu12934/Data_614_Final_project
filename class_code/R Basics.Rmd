@@ -1,0 +1,262 @@
+---
+title: "R and RStudio Basics"
+author: "DATA 614 - University of Calgary"
+date: "March 3, 2026"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# R Markdown
+
+This is an R Markdown document which has been "knitted" as PDF. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word #documents in RStudio. You can include code, graphs, and so much more in these documents, and create professional-looking reports. For more details on using R Markdown see <http://rmarkdown.rstudio.com>. 
+
+This document is for the Basics of R. 
+
+# Indexing and selecting data 
+
+## Using which()
+
+```{r}
+g=c(2,3,6,8,9,11)
+which(g!=8) # >= <= < > ==
+g[g!=8]
+g[which(g!=8)]
+```
+
+Lets now consider dataframes. We can use a built-in dataset called "mtcars". We can use functions head(), tail(), and summary() to get to know the dataset:
+```{r}
+?mtcars
+
+head(mtcars)
+tail(mtcars)
+summary(mtcars)
+
+mtcars[,2]
+mtcars[1,]
+
+
+mtcars[,2]==6
+
+which(mtcars[,2]==6)
+# try this wrong one: mtcars[mtcars[,2]==6]
+mtcars[mtcars[,2]==6,] 
+mtcars[mtcars[,2]==6,1]
+
+mtcars[which(mtcars[,2]==6),1]
+mtcars[which(mtcars[,2]==6),2]
+
+?class
+class(mtcars)
+
+class(mtcars[which(mtcars[,2]==6),2])
+
+```
+
+## Using $
+To select a field of data from a data frame, we can also use the symbol $. 
+```{r}
+?mtcars
+
+head(mtcars)
+tail(mtcars)
+summary(mtcars)
+
+mtcars[,2]
+mtcars$cyl
+cbind(mtcars$cyl)
+
+which(mtcars$cyl==6)
+# try this wrong one: mtcars[mtcars[,2]==6]
+mtcars[mtcars$cyl==6,] 
+mtcars[mtcars$cyl==6,1]
+
+mtcars$mpg[which(mtcars[,2]==6)]
+mtcars$mpg[which(mtcars[,2]==6)]
+
+```
+
+# Importing data (CSV file)
+
+```{r}
+data<-read.csv(file = "patioSmall.csv",header = FALSE)
+
+#install.packages("data.table",repos = "http://cran.us.r-project.org")
+library(data.table)
+
+#practice
+?fread
+data<-fread("patioSmall.csv",col.names =c("Review","Rating","Heading","Month","Day","year")) 
+
+summary(data)
+View(data)
+
+data[,2]
+data[1,]
+#your turn
+data$Rating[data$Month==12]
+
+mean(data$Rating[data$Month==12])
+mean(data$Rating[data$Month==9])
+```
+# Working with qualitative data
+
+Also known as categorical, entries are also known as factors or levels. Let's look at somethings that can be done on a dataset in the "MASS"" library called "painters".
+
+```{r}
+library(MASS)
+?painters
+painters
+
+school = painters$School
+school_freq = table(school)
+school_freq
+
+# can work on integers as well, but may not be useful
+composition=painters$Composition
+composition_freq = table(composition)
+composition_freq
+
+#exercise: find the school with most painters
+which.max(school_freq) # doesn't give all maximums
+which(school_freq==max(school_freq))
+
+nrow(painters)
+
+#exercise: find relative frequency distribution of schools
+school_rel_freq=school_freq/nrow(painters)
+school_rel_freq
+```
+
+# Working with quantitative data
+We will use the built-in "airmiles" dataset for the quantitative data.
+```{r}
+?airmiles
+airmiles 
+range(airmiles) #find the range of data
+range(painters$Composition)
+
+
+breaks = seq(range(airmiles)[1], range(airmiles)[2],by =(range(airmiles)[2]-range(airmiles)[1])/10 )
+breaks
+?cut
+airmiles.cut = cut(airmiles, breaks, right=FALSE)
+airmiles.cut
+
+airmiles.freq=table(airmiles.cut)
+airmiles.freq
+
+#exercise: calculate relative frequency
+airmiles.rel.freq=airmiles.freq/sum(airmiles.freq)
+airmiles.rel.freq
+
+sum(airmiles.rel.freq)
+
+#exercise: calculate cumulative frequency and relative frequency
+airmiles.cum.freq=cumsum(airmiles.freq)
+airmiles.cum.freq
+
+airmiles.cum.rel.freq=cumsum(airmiles.rel.freq)
+airmiles.cum.rel.freq
+
+
+#put the frequency, cumulative frequency, relative frequency, and cumulative relative frequency next to each other in one table.
+?options
+options(digits = 2)
+cbind(airmiles.freq,airmiles.cum.freq,airmiles.rel.freq,airmiles.cum.rel.freq)
+
+#plot the cumulative frequencies
+plot(breaks, c(0,airmiles.cum.freq))
+lines(breaks, c(0,airmiles.cum.freq))
+
+plot(breaks, c(0,airmiles.cum.freq),xlab="Airmiles",ylab = "Cumulative frequency")
+lines(breaks, c(0,airmiles.cum.freq))
+
+```
+
+There are also basic measurements that you can do on numerical data:
+```{r}
+#mean
+
+mean(mtcars$mpg)
+#exercise: how to calculate the mean(mtcars$cyl)
+as.numeric(levels(mtcars$cyl)[mtcars$cyl])
+mean(as.numeric(levels(mtcars$cyl)[mtcars$cyl]))
+
+#median
+median(mtcars$mpg)
+
+#quartiles
+quantile(mtcars$mpg)
+quantile(mtcars$mpg,c(.12,.98))
+
+#range
+range(mtcars$mpg)
+max(mtcars$mpg)-min(mtcars$mpg)
+range(mtcars$mpg)[2]-range(mtcars$mpg)[1]
+
+#interquartile range
+IQR(mtcars$mpg)
+quantile(mtcars$mpg)[[4]]-quantile(mtcars$mpg)[[2]]
+dim(quantile(mtcars$mpg))
+typeof(quantile(mtcars$mpg))
+class(quantile(mtcars$mpg))
+
+#variance and standard deviation
+var(mtcars$mpg)
+sd(mtcars$mpg)
+
+#covariance and correlation coefficient
+cov(mtcars$mpg,mtcars$disp)
+cor(mtcars$mpg,mtcars$disp)
+
+cov(mtcars$disp,mtcars$hp)
+cor(mtcars$disp,mtcars$hp)
+
+```
+
+# Dealing with missing values
+```{r}
+
+x1 <- c(1, 2, NA, 4, 5, 6)
+
+x1 == NA
+
+
+is.na(x1)
+
+x2=x1[!is.na(x1)]
+x2
+
+x1 < 0
+
+is.na(x1) <- which(x1 == 6)
+x1
+
+x3 <- c("a", "B", NA, "NA")
+# NA is different from "NA"
+is.na(x3)
+
+x <- c(1,2,NA,3)
+mean(x) 
+mean(x, na.rm=TRUE) 
+
+
+
+# NaN is different from NA. Try this:
+0/0
+
+dataNA=read.csv(file = "patioSmallNA.csv",header = FALSE)
+
+newdataNA=dataNA[!complete.cases(dataNA),]
+
+dataNA = na.omit(dataNA)
+
+is.na(dataNA)
+dataNA2=dataNA[!complete.cases(dataNA),]
+#dataNA2
+newdataNA = na.omit(dataNA)
+#newdataNA
+```
