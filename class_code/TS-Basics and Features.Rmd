@@ -1,0 +1,622 @@
+---
+title: "Time Series Analysis - Basics and Features"
+author: "University of Calgary - DATA 614"
+date: "March 17, 2026"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE, echo = TRUE)
+#install.packages("formatR")
+library(formatR)
+rm(list=ls())
+```
+
+Here, we discuss the basics of univariate and multivariate time series data. This module is based on the Forecasting, Principles and Practice book (FPP:https://otexts.com/fpp3/), and a couple of articles (https://www.analyticsvidhya.com/blog/2015/12/complete-tutorial-time-series-modeling/ and https://towardsdatascience.com/tidy-anomaly-detection-using-r-82a0c776d523).
+
+# The Basics
+Note that the ordering of data in time series is important: we cannot just take a sample of the data. Let's see what happens if we do:
+
+```{r}
+hist(AirPassengers)
+
+#correct ordering of observations
+plot(AirPassengers) 
+
+#taking a random sample of the observations
+plot(AirPassengers[sample(nrow(as.data.frame(AirPassengers)),90)]) 
+```
+As it can be seen, the sampling has ruined our understanding of the data!
+
+The first thing in analyzing time series data is to check the data a bit and to visualize the series to get a sense for it.
+
+```{r}
+#Load the AirPassengers dataset
+#?AirPassengers
+data("AirPassengers")
+
+#This data is already in TimeSeries (TS) format:
+class(AirPassengers)
+
+#Can check the start and end dates as well as the range of the time series
+start(AirPassengers)
+end(AirPassengers)
+range(AirPassengers)
+
+#summary
+summary(AirPassengers)
+
+#lets plot this Time Series
+plot(AirPassengers)
+```
+
+It can be seen from the plot that there is an upward trend and a seasonality effect. It also seems that the data is increasing exponentially (in terms of the variance), so taking the log of the data may be useful to remove heteroskedasticity. We can dig deeper into these using a linear estimation of trend, boxplots, and ACF and PACF.
+
+```{r}
+#fit a linear regression to the trend
+plot(AirPassengers)
+abline(lm(AirPassengers~time(AirPassengers)))
+
+#Next, we create box plots for each month. First, we need to change the month
+#names to month numbers, which we can do using the cycle() function.
+cycle(AirPassengers)
+boxplot(AirPassengers~cycle(AirPassengers))
+
+#Finally, create the Autcorrelation and Partial Autocorrelation plots. 
+acf(AirPassengers)
+#from acf, it can be seen that there is correlation among all lags. This is expected, because there is a trend in our dataset. If take the acf of the lags, you will see that the autocorrelation between most lags goes away.
+acf(diff(AirPassengers))
+#there is correlation with lag of 1, 11, 12, and 13 months.
+
+# The partial autocorrelation (pacf) removes the correlations that are due to an indirect effect, and just focuses on direct effects
+pacf(AirPassengers)
+pacf(diff(AirPassengers))
+#it can be seen that there is partial correlation with the first lag.
+```
+
+We can also draw the lag plot as follows.
+
+
+```{r}
+
+lag.plot(AirPassengers) #this is a bit too busy, let's remove lines and labels
+
+lag.plot(AirPassengers, do.lines = F, labels = F)
+
+```
+
+# The Basics using \textit{tsibble} and \textit{tidyverse}
+
+This is based on the FPP book, and we use the \textit{FPP3} package to load all required libraries. It also includes several TS datasets that we will use:
+```{r}
+library(fpp3)
+```
+The \textit{tsibble} data type is similar to the \textit{tibble} from \textit{tidyverse}, plus the added index for time stamps. It allows for storage of multiple time-series at once. Let's look at a couple of examples:
+
+```{r}
+global_economy
+
+tourism
+```
+
+Its usage:
+```{r}
+#define it directly
+mydata <- tsibble(
+  Year = 2015:2019,
+  Observation = c(123, 39, 78, 52, 110),
+  index = Year
+)
+
+#create it based on a tibble object
+mydata <- tibble(
+  year = 2015:2019,
+  Observation = c(123, 39, 78, 52, 110)
+)
+
+mydata = as_tsibble(mydata, index = year)
+
+#or use the tidy way with the pipe |> (or could use %>%)
+mydata <- tibble(
+  year = 2015:2019,
+  Observation = c(123, 39, 78, 52, 110)
+) |> 
+  as_tsibble(index = year)
+
+mydata
+```
+
+Some useful functions:
+```{r}
+#let's say we have the following tibble
+z <- tibble(
+  Month = c("2019 Jan","2019 Feb","2019 Mar","2019 Apr","2019 May"),
+  Observation = c(50, 23, 34, 30, 25)
+)
+
+# we now make it a tibble by identifying the Month as the index for time.
+z |>
+  mutate(Month = yearmonth(Month)) |>
+  as_tsibble(index = Month)
+z
+```
+Some other helper functions common for time indexes: yearmonth(), yearweek(), daily: as_date(), ymd(), sub-daily: as_datetime(). 
+
+Now to read from a CSV file. First make a tibble, then a tsibble:
+```{r}
+#using read.csv:
+prison <- read.csv("prison_population.csv")
+
+prison <-prison |> 
+  as_tibble() 
+
+#  or using the readr package
+prison <- readr::read_csv("prison_population.csv")
+
+prison
+```
+We can now make this a tsibble object, let's do it step by step where we use the quarters as the index. We also need to specify the key variable(s) so that there are no duplicates and all data is unique with respect to the keys. Note that there are multiple time-series in this data (for different states and territories, genders, legal, and indigenous status).
+
+```{r}
+prison |>
+  mutate(Quarter = yearquarter(Date)) #create the quarters
+
+prison |>
+  mutate(Quarter = yearquarter(Date))|>
+  select(-Date)   #remove the Date as it is no longer needed
+
+prison |>
+  mutate(Quarter = yearquarter(Date))|>
+  select(-Date) |>
+  as_tsibble(index = Quarter,
+             key = c(State, Gender, Legal, Indigenous)
+             ) #make it tsibble by specifying index and key
+
+prison <- prison |>
+  mutate(Quarter = yearquarter(Date))|>
+  select(-Date) |>
+  as_tsibble(index = Quarter,
+             key = c(State, Gender, Legal, Indigenous)
+             )
+
+prison
+```
+
+Now we have our tsibble object ready to use. 
+
+Let's take a look at some datasets. First, monthly Medicare Australia prescription dataset.
+```{r}
+PBS #see ?PBS for details about the dataset
+
+#Let's filter the data and select particular variables create new ones, and then put the result in a new tsibble called a10:
+PBS |>
+  filter(ATC2 == "A10")
+
+
+PBS |>
+  filter(ATC2 == "A10") |>
+  select(Month, Concession, Type, Cost)
+
+
+PBS |>
+  filter(ATC2 == "A10") |>
+  select(Month, Concession, Type, Cost) |>
+  summarise(TotalC = sum(Cost))
+
+
+PBS |>
+  filter(ATC2 == "A10") |>
+  select(Month, Concession, Type, Cost) |>
+  summarise(TotalC = sum(Cost)) |>
+  mutate(Cost = TotalC/1e6)
+
+
+PBS |>
+  filter(ATC2 == "A10") |>
+  select(Month, Concession, Type, Cost) |>
+  summarise(TotalC = sum(Cost)) |>
+  mutate(Cost = TotalC / 1e6) -> a10
+
+```
+
+## Sequence/time plots
+Now let's create some plots. We will be using the \textit{autoplot()} function a lot.
+
+```{r}
+autoplot(a10, Cost) +
+  labs(y = "$ (millions)",
+       title = "Australian antidiabetic drug sales")
+
+
+a10 |> autoplot() #automatically uses the cost,
+
+a10 |> 
+  ggplot(aes(x=Month, y = Cost)) +
+  geom_point() #this is not that useful
+
+a10 |> 
+  ggplot(aes(x=Month, y = Cost)) +
+  geom_line() #this is basically what autoplot() did.
+
+a10 |> autoplot() + geom_point() #together, can better see the data points
+
+a10 |> autoplot() + geom_point()+ 
+  labs(title = "Australian Antidiabetic Drug Sales", y = "Million AUD") #adding labels
+```
+
+Another dataset: passenger numbers on Ansett Airlines
+
+```{r}
+#?ansett
+
+ansett |> autoplot() #  30 time series in this dataset
+
+autoplot(ansett)
+
+#let's see how many classes and airport pairs are there.
+ansett |> distinct(Class)
+ansett |> distinct(Airports)
+
+#let's filter it a bit
+ansett |>
+  filter(Class == "Economy") |>
+  autoplot() 
+
+#filter and create a new object
+melsyd <- ansett |>
+  filter(Airports == "MEL-SYD") |>
+  select(-Airports)
+
+#plot passenger numbers in the MEL-SYD route
+melsyd |> autoplot()
+
+#Looking at economy class only
+melsyd_economy <- ansett |>
+  filter(Airports == "MEL-SYD", Class == "Economy") |>
+  mutate(Passengers = Passengers/1000)
+autoplot(melsyd_economy, Passengers) +
+  labs(title = "Ansett airlines economy class",
+       subtitle = "Melbourne-Sydney",
+       y = "Passengers ('000)")
+
+```
+
+## Seasonal plots
+Seasonal effects are often present in time-series data. Here we will look into them using seasonal plots to better understand the seasonality patterns.
+
+In the PBS dataset that we subsampled in object a10:
+```{r}
+a10 |> autoplot(Cost)
+
+
+a10 |>
+  gg_season(Cost, labels = "both") +
+  labs(y = "$ (millions)",
+       title = "Seasonal plot: Antidiabetic drug sales")
+```
+
+Another dataset: beer production from Australian production dataset:
+
+```{r}
+#?aus_production
+beer <- aus_production |>
+  select(Quarter,Beer) |>
+  filter(year(Quarter)>= 1992) #Use the quarter and Beer columns, filter for recent production data only.
+
+beer |> autoplot(Beer) +
+  labs(title = "Australian beer production", y="Mehgaliters")
+
+beer |> autoplot(Beer) + geom_point() +
+  labs(title = "Australian beer production", y="Mehgaliters")
+
+beer |> gg_season(Beer, labels = "right")
+```
+
+Finally, electrecity usage data in Victoria, Australia:
+```{r}
+
+vic_elec |> autoplot()
+
+vic_elec |> gg_season() # or gg_season(Demand), does year automatically
+
+#can change the periods to take a better look:
+vic_elec |> 
+  gg_season(Demand, period = "year") +
+  labs(y="MWh", title="Electricity demand: Victoria")
+
+vic_elec |> gg_season(Demand, period = "week") +
+  labs(y="MWh", title="Electricity demand: Victoria")
+
+
+vic_elec |> gg_season(Demand, period = "day") +
+  labs(y="MWh", title="Electricity demand: Victoria")
+
+
+#Filtering for a specific year.
+vic_elec |> 
+  filter(year(Date) ==2013) |>
+  gg_season(Demand, period = "year") +
+  labs(y="MWh", title="Electricity demand: Victoria")
+
+```
+
+## Seasonal subseries plots
+This gives a bit more detail on seasonal effects:
+
+```{r}
+a10 |>
+  gg_subseries(Cost) +
+  labs(
+    y = "$ (millions)",
+    title = "Australian antidiabetic drug sales"
+  )
+
+#the beer data we crated above.
+beer |> autoplot(Beer)
+
+beer |> gg_subseries() #quarter 4 production is going down more
+
+```
+
+## Scatter plots and correlation
+
+This could be done on data that is not in TS format as well. Let's see how we can create scatter plots and calculate correlation with TS data. We consider the demand versus temperature in the Victoria electrecity usage dataset:
+
+```{r}
+vic_elec |>
+  filter(year(Time) == 2014) |>
+  autoplot(Demand) +
+  labs(y = "GW",
+       title = "Half-hourly electricity demand: Victoria")
+
+vic_elec |>
+  filter(year(Time) == 2014) |>
+  autoplot(Temperature) +
+  labs(
+    y = "Degrees Celsius",
+    title = "Half-hourly temperatures: Melbourne, Australia"
+  )
+
+vic_elec |>
+  filter(year(Time) == 2014) |>
+  ggplot(aes(x = Temperature, y = Demand)) +
+  geom_point() +
+  labs(title="Electricity demand versus Temperature",
+       x = "Temperature (degrees Celsius)",
+       y = "Electricity demand (GW)")
+
+#we can also separate the weekdays from weekends using the filter:
+vic_elec |>
+  filter(year(Time) == 2014,wday(Date) %in% c(2,6)) |>
+  ggplot(aes(x = Temperature, y = Demand)) +
+  geom_point() +
+  labs(title="Electricity demand versus Temperature",
+       x = "Temperature (degrees Celsius)",
+       y = "Electricity demand (GW)")
+```
+
+Correlation and scatter plots can be easily created for datasets using the \textit{GGally} package:
+
+```{r}
+us_change |> GGally::ggpairs(columns = 2:6)
+
+```
+
+
+## Lag plots
+Let's plot the beer production lag plots. Note that this is quarterly data.
+
+```{r}
+recent_production <- aus_production |>
+  filter(year(Quarter) >= 1995) #focusing on the more recent data.
+
+recent_production |>
+  gg_lag(Beer, geom = "point") +
+  labs(x = "lag(Beer, k)") 
+
+
+recent_production |>
+  gg_lag(Beer) +
+  labs(x = "lag(Beer, k)") #this shows the lines, though may not be that useful here.
+```
+
+## Autocorrelation
+
+Autocorrelation is one of the main features of a time-series data. Let's calculate autocorrelation and plot the autocorrelation plot for a few example datasets:
+```{r}
+recent_production |> ACF(Beer, lag_max = 9)
+
+
+recent_production |>
+  ACF(Beer) |>
+  autoplot() + labs(title="Australian beer production")
+```
+In the above ACF, we can clearly see the seasonality effect in beer production.
+
+
+```{r}
+retail <- us_employment |> 
+  filter(Title=="Retail Trade", year(Month) >=1980 )
+
+retail |> autoplot(Employed)
+
+retail |>
+  ACF(Employed, lag_max = 48) |>
+  autoplot()
+```
+Because we have a trend, we see autocorrelation across the board for different lags. Still, the seasonality is also evident from spikes in lags of 12, 24, ... months. A way to remove the indirect correlation is to use the PACF plot:
+
+```{r}
+retail |>
+  PACF(Employed, lag_max = 48) |>
+  autoplot()
+```
+Now looking at a stock prices:
+
+```{r}
+google_2015 <- gafa_stock |>
+  filter(Symbol =="GOOG", year(Date) ==2015) |>
+  select(Date,Close)
+  
+google_2015 #irregular spacing [!]
+
+google_2015 |>  autoplot(Close) + labs(title = "GOOG Closing Price")
+
+google_2015 |> 
+  ACF(Close,lag_max = 100)
+
+google_2015 |> 
+  ACF(Close,lag_max = 100) |>
+  autoplot()
+
+# let's consider the PACF
+google_2015 |> 
+  PACF(Close,lag_max = 100) |>
+  autoplot()
+```
+
+# Decomposition
+
+There is a simple way to decompose time series in R using decomposition by moving averages. We will take a look at another way for anomaly detection:
+
+```{r}
+#Classical Seasonal Decomposition by Moving Averages
+plot(decompose(log(AirPassengers)))
+```
+
+## Transformations and adjustments
+
+To get into decomposition a bit more deeply, need to first consider transformations and adjustments. Let's see an example.
+
+Let's consider GDP. To see how the economy is growing, it is important to get the per-capita values, thereby, we need to make some adjustments.
+
+```{r}
+global_economy |>
+  filter(Country == "Australia") |>
+  autoplot(GDP)
+
+#per-capita:
+global_economy |>
+  filter(Country == "Australia") |>
+  autoplot(GDP/Population)
+
+```
+
+Another example to do inflation adjustments:
+
+```{r}
+print_retail <- aus_retail |>
+  filter(Industry == "Newspaper and book retailing") |>
+  group_by(Industry) |>
+  index_by(Year = year(Month)) |>
+  summarise(Turnover = sum(Turnover))
+aus_economy <- global_economy |>
+  filter(Code == "AUS")
+
+print_retail |>
+  left_join(aus_economy, by = "Year") |>
+  mutate(Adjusted_turnover = Turnover / CPI * 100) |>
+  pivot_longer(c(Turnover, Adjusted_turnover),
+               values_to = "Turnover") |>
+  mutate(name = factor(name,
+         levels=c("Turnover","Adjusted_turnover"))) |>
+  ggplot(aes(x = Year, y = Turnover)) +
+  geom_line() +
+  facet_grid(name ~ ., scales = "free_y") +
+  labs(title = "Turnover: Australian print media industry",
+       y = "$AU")
+
+```
+
+As well might do some mathematical transformations to remove the heterogeneity in the data and make it more even (this does not need to be exact, but roughly even). Log is the most common transformation used:
+
+```{r}
+food <- aus_retail |>
+  filter(Industry == "Food retailing") |>
+  summarise(Turnover = sum(Turnover)) 
+
+food |> autoplot()
+
+food |> autoplot(log(Turnover))
+```
+
+Another useful transformation is the Box-Cox transformation with parameter $\lambda$. The Guerrero approach can be used to find (roughly) the parameter $\lambda$.
+
+```{r}
+food |> autoplot(box_cox(Turnover, 1))
+
+food |> autoplot(box_cox(Turnover, 0.05))
+
+food |> 
+  features(Turnover, features = guerrero)
+
+food |> autoplot(box_cox(Turnover,0.08))
+```
+
+
+
+## Decomposition using Classical Decomposition
+
+```{r}
+us_retail_employment <- us_employment |>
+  filter(year(Month) >= 1990, Title == "Retail Trade") |>
+  select(-Series_ID)
+autoplot(us_retail_employment, Employed) +
+  labs(y = "Persons (thousands)",
+       title = "Total employment in US retail")
+
+us_retail_employment |> 
+  model(classical_decomposition(Employed, type = "additive")) |>
+components() |> 
+  autoplot()
+```
+
+
+## Decomposition using STL
+
+```{r}
+dcmp <- us_retail_employment |> 
+  model(stl = STL(Employed))
+components(dcmp)
+
+components(dcmp) |> autoplot()
+```
+
+Can make the seasons fixed across time (usually the default is preferred):
+```{r}
+us_retail_employment |> 
+  model(STL(Employed ~ season(window = "periodic"))) |>
+  components() |>
+ autoplot()
+```
+
+## Using results from decomposition
+
+Can use the components for plots:
+
+```{r}
+components(dcmp) |>
+  as_tsibble() |>
+  autoplot(Employed, colour="gray") +
+  geom_line(aes(y=trend), colour = "orange") +
+  labs(
+    y = "Persons (thousands)",
+    title = "Total employment in US retail"
+  )
+```
+
+```{r}
+components(dcmp) |>
+  gg_subseries(season_year)
+```
+
+And can do the seasonal adjustments and use what remains if we do not care about seasonality.
+
+```{r}
+components(dcmp) |>
+  as_tsibble() |>
+  autoplot(Employed, colour = "gray") +
+  geom_line(aes(y=season_adjust), colour = "blue") +
+  labs(y = "Persons (thousands)",
+       title = "Total employment in US retail")
+```
