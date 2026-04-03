@@ -1,0 +1,286 @@
+# Core wrangling & dates
+library(tidyverse)
+library(lubridate)
+
+# Time-series + decomposition
+library(tsibble)
+library(feasts)      # STL, ACF/PACF, seasonal plots
+library(fabletools)
+
+# Rolling stats
+library(zoo)
+
+# Structural breaks / changepoints
+library(changepoint)
+
+# Modeling prep (later)
+library(broom)
+
+# Replace with actual file paths
+nyc_raw   <- read_csv("data/nyc_capital_projects.csv")
+kaggle_raw <- read_csv("data/kaggle_construction_projects.csv")
+figshare_raw <- read_csv("data/figshare_construction_projects.csv")
+
+glimpse(nyc_raw)
+glimpse(kaggle_raw)
+glimpse(figshare_raw)
+# Example: standardise key identifiers and types
+nyc <- nyc_raw %>%
+  janitor::clean_names() %>%
+  mutate(
+    project_type = as.factor(project_type),
+    managing_agency = as.factor(managing_agency),
+    project_phase = as.factor(project_phase),
+    planned_completion_date = ymd(planned_completion_date),
+    actual_completion_date  = ymd(actual_completion_date),
+    commit_date             = ymd(commit_date) # or whatever date field exists
+  )
+
+kaggle <- kaggle_raw %>%
+  janitor::clean_names() %>%
+  mutate(
+    project_type = as.factor(project_type),
+    team_size    = as.numeric(team_size),
+    change_order_count = as.numeric(change_order_count)
+  )
+
+figshare <- figshare_raw %>%
+  janitor::clean_names()
+
+# Example assumptions: adjust column names to your schema
+projects <- nyc %>%
+  mutate(
+    cost_overrun_pct = (actual_spend - committed_budget) / committed_budget * 100,
+    schedule_variance_days = as.numeric(actual_completion_date - planned_completion_date),
+    year = year(commit_date)
+  ) %>%
+  # join with Kaggle features on project_type and maybe phase
+  left_join(
+    kaggle %>%
+      select(project_type, project_phase, team_size, contractor_type,
+             risk_score, change_order_count) %>%
+      distinct(),
+    by = c("project_type", "project_phase")
+  )
+
+glimpse(projects)
+summary(select(projects, cost_overrun_pct, schedule_variance_days, team_size, change_order_count))
+
+# Aggregate to monthly spend per project
+project_ts <- projects %>%
+  mutate(month = floor_date(commit_date, "month")) %>%
+  group_by(project_id, project_type, project_phase, month) %>%
+  summarise(
+    monthly_spend = sum(actual_spend, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  as_tsibble(
+    key = c(project_id, project_type, project_phase),
+    index = month
+  )
+
+# Quick check
+project_ts
+
+# Example: pick one project type & phase for illustration
+ts_example <- project_ts %>%
+  filter(project_type == "Roads", project_phase == "Construction") %>%
+  index_by(month) %>%
+  summarise(monthly_spend = sum(monthly_spend, na.rm = TRUE))
+
+# STL decomposition
+ts_example %>%
+  model(stl = STL(monthly_spend ~ season(window = "periodic"))) %>%
+  components() %>%
+  autoplot()
+
+# Seasonal subseries plot
+ts_example %>%
+  gg_subseries(monthly_spend)
+
+# ACF / PACF
+ts_example %>%
+  ACF(monthly_spend) %>%
+  autoplot()
+
+ts_example %>%
+  PACF(monthly_spend) %>%
+  autoplot()
+
+# Rolling mean and sd per project
+project_ts_roll <- project_ts %>%
+  group_by(project_id, project_type, project_phase) %>%
+  arrange(month) %>%
+  mutate(
+    roll_mean_6 = rollapply(monthly_spend, width = 6, FUN = mean,
+                            align = "right", fill = NA, na.rm = TRUE),
+    roll_sd_6   = rollapply(monthly_spend, width = 6, FUN = sd,
+                            align = "right", fill = NA, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# Visualise rolling spend for a sample project
+project_ts_roll %>%
+  filter(project_id == first(project_id)) %>%
+  ggplot(aes(x = month)) +
+  geom_line(aes(y = monthly_spend), colour = "grey50") +
+  geom_line(aes(y = roll_mean_6), colour = "blue") +
+  labs(title = "Monthly spend and 6‑month rolling mean")
+
+# Create binary + continuous targets
+projects_model <- projects %>%
+  mutate(
+    over_budget_flag = cost_overrun_pct > 0,
+    late_flag        = schedule_variance_days > 0
+  )
+
+# Quick EDA of targets
+projects_model %>%
+  count(over_budget_flag) %>%
+  mutate(prop = n / sum(n))
+
+projects_model %>%
+  count(late_flag) %>%
+  mutate(prop = n / sum(n))
+
+# Distribution plots
+projects_model %>%
+  ggplot(aes(x = cost_overrun_pct)) +
+  geom_histogram(bins = 40, fill = "steelblue") +
+  coord_cartesian(xlim = c(-50, 200)) +
+  labs(title = "Cost overrun % distribution")
+
+projects_model %>%
+  ggplot(aes(x = schedule_variance_days)) +
+  geom_histogram(bins = 40, fill = "tomato") +
+  labs(title = "Schedule variance (days)")
+
+# Pairwise relationships
+projects_model %>%
+  ggplot(aes(x = team_size, y = cost_overrun_pct)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", se = FALSE, colour = "blue") +
+  labs(title = "Cost overrun vs team size")
+
+projects_model %>%
+  ggplot(aes(x = change_order_count, y = cost_overrun_pct)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", se = FALSE, colour = "darkred") +
+  labs(title = "Cost overrun vs change orders")
+
+# Boxplots by project type
+projects_model %>%
+  ggplot(aes(x = project_type, y = cost_overrun_pct)) +
+  geom_boxplot() +
+  coord_flip() +
+  labs(title = "Cost overrun by project type")
+
+# Correlation matrix for numeric predictors
+projects_model %>%
+  select(cost_overrun_pct, schedule_variance_days, team_size,
+         change_order_count, risk_score) %>%
+  drop_na() %>%
+  cor() %>%
+  round(2)
+
+# Example: aggregate spend over time for a single project
+proj_example <- project_ts %>%
+  filter(project_id == first(project_id)) %>%
+  arrange(month)
+
+ts_vec <- proj_example$monthly_spend
+
+# Changepoint detection on mean
+cp_mean <- cpt.mean(ts_vec, method = "PELT")
+cp_mean
+
+# Plot with changepoints
+plot(cp_mean, main = "Changepoints in monthly spend")
+
+# STL remainder anomaly inspection
+stl_comp <- proj_example %>%
+  model(stl = STL(monthly_spend ~ season(window = "periodic"))) %>%
+  components()
+
+autoplot(stl_comp)
+
+# Flag large remainder values as anomalies
+anomalies <- stl_comp %>%
+  as_tibble() %>%
+  mutate(
+    z_remainder = (remainder - mean(remainder, na.rm = TRUE)) /
+                  sd(remainder, na.rm = TRUE),
+    anomaly_flag = abs(z_remainder) > 3
+  )
+
+anomalies %>%
+  filter(anomaly_flag)
+
+# Spend trajectory plots by project type and phase
+project_ts %>%
+  group_by(project_type, project_phase, month) %>%
+  summarise(monthly_spend = sum(monthly_spend, na.rm = TRUE), .groups = "drop") %>%
+  ggplot(aes(x = month, y = monthly_spend, colour = project_phase)) +
+  geom_line() +
+  facet_wrap(~ project_type, scales = "free_y") +
+  labs(title = "Spend trajectories by project type and phase")
+
+# Seasonal subseries (e.g., quarterly)
+project_ts %>%
+  index_by(month) %>%
+  summarise(monthly_spend = sum(monthly_spend, na.rm = TRUE)) %>%
+  mutate(quarter = quarter(month)) %>%
+  gg_subseries(monthly_spend, period = quarter)
+
+# Phase duration heatmap (requires phase start/end dates)
+phase_durations <- projects %>%
+  mutate(
+    phase_duration_days = as.numeric(phase_end_date - phase_start_date)
+  )
+
+phase_durations %>%
+  ggplot(aes(x = project_phase, y = project_type, fill = phase_duration_days)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  labs(title = "Phase duration heatmap")
+
+# Rolling cost‑overrun rate over time (portfolio level)
+projects %>%
+  arrange(commit_date) %>%
+  mutate(
+    overrun_flag = cost_overrun_pct > 0
+  ) %>%
+  group_by(month = floor_date(commit_date, "month")) %>%
+  summarise(
+    overrun_rate = mean(overrun_flag, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    overrun_rate_roll_6 = rollapply(overrun_rate, 6, mean,
+                                    align = "right", fill = NA)
+  ) %>%
+  ggplot(aes(x = month)) +
+  geom_line(aes(y = overrun_rate), colour = "grey50") +
+  geom_line(aes(y = overrun_rate_roll_6), colour = "purple") +
+  labs(title = "Rolling cost‑overrun rate (6‑month)")
+
+# Time‑series modeling table (spend trajectories)
+ts_model_data <- project_ts %>%
+  left_join(
+    projects_model %>%
+      select(project_id, project_type, project_phase,
+             cost_overrun_pct, schedule_variance_days,
+             team_size, change_order_count, risk_score),
+    by = c("project_id", "project_type", "project_phase")
+  )
+
+# Regression / ML table (one row per project)
+reg_model_data <- projects_model %>%
+  select(project_id, project_type, project_phase,
+         cost_overrun_pct, schedule_variance_days,
+         over_budget_flag, late_flag,
+         team_size, change_order_count, risk_score,
+         permit_complexity, phase_duration_days)
+
+# Placeholder for text‑derived features from LLM
+# (later: bind_cols(reg_model_data, llm_features_df))
