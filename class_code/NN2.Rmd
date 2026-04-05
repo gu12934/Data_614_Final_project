@@ -1,0 +1,127 @@
+---
+title: "Machine Learning: Neural Networks 2"
+author: "University of Calgary - DATA 614"
+date: "March 26, 2026"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE, echo = TRUE)
+#install.packages("formatR")
+library(formatR)
+rm(list=ls())
+```
+
+This topic is a demonstration of how powerful machine learning models can be. It is based on the example from slides, where we are trying to predict a handwritten digit from a 28 by 28 picture. 
+
+This is based on based on https://kuanhoong.wordpress.com/2016/02/01/r-and-deep-learning-cnn-for-handwritten-digits-recognition/
+
+Here, we use the "h2o" package, the Scalable Machine Learning Platform. This allows for "parallelized implementations of many supervised and unsupervised machine learning algorithms such as Generalized Linear Models, Gradient Boosting Machines (including XGBoost), Random Forests, Deep Neural Networks (Deep Learning), Stacked Ensembles, Naive Bayes, Cox Proportional Hazards, K-Means, PCA, Word2Vec, as well as a fully automatic machine learning algorithm (AutoML)" (https://www.rdocumentation.org/packages/h2o/versions/3.32.0.1). You can find more information on the "h2o" package in: https://cran.r-project.org/web/packages/h2o/h2o.pdf
+
+The data is from https://www.kaggle.com/c/digit-recognizer/data 
+
+First, let's visualize the data.
+```{r}
+rm(list=ls())
+
+data = read.csv("trainSample.csv")
+
+#head(data)
+
+# This creates a 28*28 matrix with pixel values. It basically creates the picture in numbers
+m = matrix(unlist(data[7,-1]), nrow = 28, byrow = TRUE)
+
+# Plot that matrix
+image(m)
+image(m,col=grey.colors(255))
+
+#We can also create nicer plots of the images.
+#this creates a function for rotating
+rotate <- function(x) t(apply(x, 2, rev)) 
+
+# Plot some of images
+par(mfrow=c(2,3))
+lapply(1:6, 
+       function(x) image(
+         rotate(matrix(unlist(data[x,-1]),nrow = 28, byrow = TRUE)),
+         col=grey.colors(255),
+         xlab=data[x,1]
+       )
+)
+
+par(mfrow=c(1,1)) # set plot options back to default
+```
+
+Now let's create a deep neural network to predict the digit. 
+```{r}
+#First, lets select 80% of the data for training and the rest for testing.
+traini= sample(nrow(data),round(0.8*nrow(data)), replace=FALSE)
+train=data[traini,]
+test=data[-traini,]
+
+# It is probably a good idea to normalize the data, but since
+# our variables have the same scale, it is not necessary here.
+
+#We need to convert digit labels to factor for classification
+train[,1]<-as.factor(train[,1])
+
+#install.packages("h2o")
+library(h2o)
+
+#start a local h2o cluster. Need Java for this to run properly
+local.h2o <- h2o.init(ip = "localhost", port = 54321, startH2O = TRUE, nthreads=-1)
+
+# pass dataframe from inside of the R environment to the H2O instance
+trData<-as.h2o(train)
+tsData<-as.h2o(test)
+
+#create the model with 3 hidden layers (deep) and each with 50 neurons
+fit = h2o.deeplearning(x = 2:785, y = 1, trData, activation = "Tanh", hidden=rep(50,3),epochs = 20)
+# more information on options of this: https://www.rdocumentation.org/packages/h2o/versions/3.28.0.4/topics/h2o.deeplearning
+# this has lots of options for scaling, activation functions, decay,
+# dropout, cross-validation, etc.
+
+#use model to predict testing dataset
+pred=h2o.predict(fit,tsData[,-1])
+pred=as.data.frame(pred)
+
+#calculate accuracy
+mean(pred[,1]==test[,1])
+
+#create another model with "rectifier" activation function
+fit = h2o.deeplearning(x = 2:785, y = 1, trData, activation = "Rectifier", hidden=rep(50,3),epochs = 20,nfolds = 5, seed=1)
+# we added nfolds and seed to do a cross-validation.
+
+
+#?h2o.deeplearning
+
+#use model to predict testing dataset
+pred=h2o.predict(fit,tsData[,-1])
+pred=as.data.frame(pred)
+
+#calculate accuracy
+mean(pred[,1]==test[,1])
+```
+
+Additionally, the h2o package allows for AutoML. "H2O's AutoML can be used for automating the machine learning workflow, which includes automatic training and tuning of many models within a user-specified time-limit." (http://docs.h2o.ai/h2o/latest-stable/h2o-docs/automl.html). This is an easy to use way of trying many different models within the time-limit. We will use the same training and testing data as before. 
+
+
+```{r}
+#h2o.init()
+
+# Run AutoML for 20 base models (limited to 1 hour max runtime by default)
+fit = h2o.automl(x = 2:785, y = 1, trData, max_models=10, seed=1)
+
+lb <- fit@leaderboard
+print(lb, n = nrow(lb))
+
+# The leader model is stored here
+fit@leader
+
+# predict using the leader model:
+pred <- h2o.predict(fit@leader, tsData[,-1])
+
+#calculate accuracy
+mean(pred[,1]==tsData[,1])
+#the accuracy is ~93%, not bad!
+```

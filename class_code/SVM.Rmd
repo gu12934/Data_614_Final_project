@@ -1,0 +1,151 @@
+---
+title: "Support Vector Machines"
+author: "University of Calgary - DATA 614"
+date: "March 31, 2026"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE, echo = TRUE)
+#install.packages("formatR")
+library(formatR)
+rm(list=ls())
+```
+
+There are a few packages in R that can do SVM. We use the package "e1071" in this course. There is also "kernlab" which has some better plotting options. Neither is perfect though. It is possible to create your code for example to create better plots. For example, take a look at these pages:
+http://uc-r.github.io/svm
+https://www.datacamp.com/community/tutorials/support-vector-machines-r
+
+Lets look at an implementation for the "cats" dataset within "MASS" library.
+```{r}
+data(cats, package = "MASS") #the default kernel is radial
+library(e1071)
+# use ?svm to learn more about this function
+m <- svm(Sex~., data = cats)
+plot(m, cats,fill = TRUE)
+
+summary(m)
+
+#the support vectors indexes are included in:
+m$index
+
+# can create different variations of SVM models using different kernels:
+m <- svm(Sex~., data = cats, kernel="linear")
+plot(m,cats)
+
+m <- svm(Sex~., data = cats, kernel="polynomial", degree=2)
+plot(m, cats)
+
+m <- svm(Sex~., data = cats, kernel="radial", gamma=1)
+plot(m, cats)
+```
+
+In the plots for SVM using the "e1071" package, support vectors are shown as "X". 
+
+Now lets look at the mtcars dataset. We first need to change the data to a data.frame format. For this example, we will use columns 4 and 6 as inputs, and column 9 as output (whether or not the car is manual). 
+
+```{r}
+mtcars2=data.frame(mtcars[,c(4,6,9)])
+
+mtcars2$am=as.factor(mtcars2$am) #make sure the output is a factor,
+#otherwise this will create a SVM regression.
+
+svmfit = svm(mtcars2$am ~ ., data = mtcars2, kernel = "linear", cost = 10, scale = FALSE ,subset = 1:20)
+svmfit
+
+names(svmfit) #data within the object
+svmfit$cost
+
+plot(svmfit,mtcars2)
+
+pred=predict(svmfit, mtcars2[21:32,])
+
+mean(pred==mtcars2$am[21:32])
+
+#### different kernels
+svmfit = svm(mtcars2$am ~ ., data = mtcars2, kernel = "polynomial", cost = 10, scale = FALSE)
+svmfit
+
+plot(svmfit,mtcars2)
+
+pred=predict(svmfit, mtcars2[21:32,])
+
+mean(pred==mtcars2$am[21:32])
+
+svmfit = svm(mtcars2$am ~ ., data = mtcars2, kernel = "radial", cost = 10, scale = FALSE)
+svmfit
+
+plot(svmfit,mtcars2)
+
+pred=predict(svmfit, mtcars2[21:32,])
+
+mean(pred==mtcars2$am[21:32])
+
+####whole mtcars
+
+mtcars2=data.frame(mtcars)
+
+mtcars2$am=as.factor(mtcars2$am)
+
+svmfit = svm(mtcars2$am ~ ., data = mtcars2, kernel = "linear", cost = 10, scale = TRUE ,subset = 1:20)
+svmfit
+
+pred=predict(svmfit, mtcars2[21:32,])
+
+mean(pred==mtcars2$am[21:32])
+
+```
+
+The real power of SVM is for dataset with high demensions. The library for the James et al. (2017) book has a dataset on cell types and genomes, which has 2308 input variables. use "?Khan" to learn more about this dataset. It stores the training and test input and output data in specific objects within the dataset.
+
+```{r}
+library(ISLR)
+data("Khan")
+#?Khan
+#create training and test sets that include both input and output
+train <- data.frame(x = Khan$xtrain, y=as.factor(Khan$ytrain))
+Khan$ytrain
+
+test = data.frame(x=Khan$xtest, y=as.factor(Khan$ytest))
+
+out = svm(y~., data = train, kernel = "linear", cost=10)
+# you can test different kernels and cost values to find the best one
+# usually it makes sense to do cross-validation.
+
+
+table(out$fitted, train$y) #confusion matrix for the training set
+
+mean(out$fitted== train$y) #this is the training error
+
+#lets calculate the test error and confistion matrix for the test set
+
+pred <- predict(out, newdata=test)
+table(pred, test$y)
+mean(pred== test$y)
+```
+
+Note that in this data, there are 4 classes for the output. The svm() function uses a one-versus-one approach to predict the class if there are more than two classes in the output variable.
+
+We can use the tune() function to perform cross-validation:
+
+```{r}
+set.seed(1)
+
+#cross-validation
+tune.out=tune(svm,y~., data = train, ranges = list(kernel=c("linear","radial","polynomial"),cost=c(.1,1,10,100)))
+
+summary(tune.out)
+```
+It can be seen that in this case, the cost parameter does not impact the errors and linear kernel works best. The best model parameters are taken as the first one (cost=0.1). We can see the results of this model and create accuracies for the test set as follows:
+
+```{r}
+#this is where the best model from cross-validation is kept:
+tune.out$best.model
+
+#predicted values:
+pred=predict(tune.out$best.model,newdata=test)
+
+#We can now create the confusion matrix and accuracy of the best model:
+table(pred,test$y)
+mean(pred==test$y)
+```

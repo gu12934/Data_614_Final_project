@@ -1,0 +1,176 @@
+---
+title: "Machine Learning: Neural Networks 1"
+author: "University of Calgary - DATA 614"
+date: "March 26, 2026"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE, echo = TRUE)
+#install.packages("formatR")
+library(formatR)
+rm(list=ls())
+```
+
+There are different packages available for machine learning and neural networks. Here we use the "neuralnet" package. First, a regression example.
+
+```{r}
+rm(list=ls())
+# Read the Data
+
+data = read.csv("cereals.csv", header=T)
+
+dim(data)
+
+# Random sampling
+set.seed(1)
+# creating training and test set, we use 60% of the data for training and the rest for testing
+index = sample(  nrow ( data ), size = floor(0.60 * nrow(data) ), replace = FALSE)
+
+# very important to normalize the data for NN. Normalize based on
+# training set. We use a min-mix scaling here.
+maxs = apply(data[index,], 2 , max)
+mins = apply(data[index,], 2 , min)
+scaled = data.frame(scale(data, center = mins, scale = maxs - mins))
+
+trainNN = scaled[index , ]
+testNN = scaled[-index , ]
+
+# Fit the neural network. Need the package first
+# install.packages("neuralnet")
+
+# load library
+library(neuralnet)
+
+# fit neural network
+set.seed(2)
+# A NN with one hidden layer that has 3 neurons
+NN = neuralnet(rating ~ calories + protein + fat + sodium + fiber, trainNN, hidden = 3 , linear.output = T ,
+               lifesign = "minimal")
+# The linear.output=T implies that the activation function  
+# is not applied in the output layer. This is TRUE 
+# for regression and FALSE for classification.
+# The lifesign = "minimal" argument asks R to print out the progress. Can choose between 'none', 
+# 'minimal' or 'full'. This is particularly useful when creating large models with big datasets. 
+```
+
+Now we can plot our NN model.
+
+```{r}
+plot(NN)
+```
+
+We can create another model, with 2 hidden layers, each with 3 neurons.
+
+```{r}
+# A NN with two hidden layers, each with 3 neurons
+NN = neuralnet(rating ~ calories + protein + fat + sodium + fiber, trainNN, hidden = c(3,3) , linear.output = T )
+
+# plot neural network
+plot(NN)
+```
+
+Now we can use the model to make predictions.
+
+```{r}
+## Prediction using neural network
+predict_testNN = compute(NN, testNN[,c(1:5)])
+# Need to transform the data back to scores
+predict_testNN = (predict_testNN$net.result * (maxs[6] - mins[6])) + mins[6]
+
+plot(data$rating[-index], predict_testNN, col='blue', pch=16, ylab = "predicted rating NN", xlab = "real rating")
+
+abline(0,1)
+
+# Calculate Root Mean Square Error (RMSE) for the test set
+RMSE.NN = sqrt(sum((data$rating[-index] - predict_testNN)^2) / nrow(data[-index,]))
+RMSE.NN
+```
+
+Neural networks have many parameters that need to be decided. The best way to find a good model, is to cross-validate. Below is an example of trying different model parameters using a loop. While this does not do a cross-validation, it gives an overview of the idea. This links provides an example code for doing a k-fold cross-validation: https://www.analyticsvidhya.com/blog/2017/09/creating-visualizing-neural-network-in-r/. 
+
+```{r}
+set.seed(1)
+results=data.frame()
+for (j in c("logistic","tanh")){
+  print(j)
+  for (i in c(3,4,5)) { 
+  # create the model with 1 hidden layer of size i
+  NN = neuralnet(rating ~ calories + protein + fat + sodium + fiber, trainNN,   hidden = i , act.fct = j, linear.output = T )
+  ## Prediction using neural network and transform the results
+  predict_testNN = compute(NN, testNN[,c(1:5)])
+  predict_testNN = (predict_testNN$net.result * (maxs[6] - mins[6])) + mins[6]
+  
+  # Calculate Root Mean Square Error (RMSE) for the test set
+  RMSE.NN = sqrt(sum((data$rating[-index] - predict_testNN)^2) / nrow(data[-index,]))
+  
+  cat(sprintf("\"%g\" \"%f\"\n", i , RMSE.NN))
+}}
+
+```
+
+## Classification
+
+Neural networks can also be used for classification. Here is an example for the Activity dataset.
+
+```{r}
+rm(list=ls())
+# Read the Data
+data = read.csv("activity2sample.csv", header=T)
+
+dim(data)
+
+# load libraries
+#library(neuralnet)
+library(nnet) # this is needed for the class.ind() function.
+
+# Random sampling
+set.seed(1)
+# creating training and test set, we use 60% of the data for training and the rest for testing
+index = sample(  nrow ( data ), size = floor(0.60 * nrow(data) ), replace = FALSE)
+
+# very important to normalize the data for NN. Normalize based on
+# training set. Do not scale the classification output.
+maxs = apply(data[index,1:3], 2 , max)
+mins = apply(data[index,1:3], 2 , min)
+scaled = data.frame(scale(data[,1:3], center = mins, scale = maxs - mins),activity=class.ind(as.factor(data[,4])))
+
+#you can inspect the scaled values to see the 
+#transformation of the class:
+#View(scaled)
+
+trainNN = scaled[index , ]
+testNN = scaled[-index , ]
+
+# fit neural network
+set.seed(2)
+# A NN with one hidden layer that has 3 neurons
+NN = neuralnet(activity.1+activity.3+activity.4+activity.7 ~ ., trainNN, hidden = 3  , linear.output = F)
+
+# plot neural network
+plot(NN)
+```
+
+We can now use the model to make predictions.
+```{r}
+## Prediction using neural network
+predict_testNN = compute(NN, testNN[,1:3])
+# this gives us the activation values for each class.
+predict_testNN$net.result
+
+#next we need to find the classes, which is going to be the max() of the activation values
+predict_testNNclass=apply(predict_testNN$net.result,1,which.max)
+predict_testNNclass
+
+#This is where you can find the class names: 
+NN$model.list[1]
+
+#need to find the actual classes (according to what we have in the model)
+testActivity=max.col(testNN[,4:7])
+testActivity
+
+# Now we can calculate the accuracy and confusion table
+mean(predict_testNNclass==testActivity)
+
+table(predict_testNNclass,testActivity)
+```
