@@ -1,0 +1,261 @@
+---
+title: "DATA614 Final Project"
+author:
+date: "2026-04-12"
+output: html_document
+---
+
+```{r}
+#install.packages("randomForest")
+```
+
+
+```{r}
+# Load libraries
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(caret)
+library(randomForest)
+library(corrplot)
+```
+
+```{r}
+# Load Excel dataset
+data <- read_excel("insurance_claims.xlsx")
+
+# Clean column names to make them valid R names
+names(data) <- make.names(names(data))
+
+# Convert target variable to binary: Y = 1, N = 0
+data$fraud_reported <- ifelse(data$fraud_reported == "Y", 1, 0)
+
+# Convert date columns to Date format
+data$policy_bind_date <- as.Date(data$policy_bind_date)
+data$incident_date <- as.Date(data$incident_date)
+
+# Create new feature: time difference between policy start and incident (days)
+data$time_gap <- as.numeric(data$incident_date - data$policy_bind_date)
+
+# Convert all character columns to factors
+data <- data %>%
+  mutate(across(where(is.character), as.factor))
+
+# Remove rows with missing values for simplicity
+data <- na.omit(data)
+
+```
+
+```{r}
+# Question 1: What factors are most strongly associated with insurance fraud claims?
+
+# Logistic Regression to identify key drivers of fraud
+# Exclude ID and location columns
+logit_model <- glm(fraud_reported ~ . -policy_number -incident_location, data = data, family = binomial)
+
+# View summary to check significance of predictors
+summary(logit_model)
+
+# Convert coefficients to odds ratios
+odds_ratios <- exp(coef(logit_model))
+odds_ratios
+
+# Compute confidence intervals for odds ratios
+conf_intervals <- exp(confint(logit_model))
+conf_intervals
+
+# Random Forest model for feature importance
+set.seed(123)
+rf_model <- randomForest(as.factor(fraud_reported) ~ . -policy_number -incident_location,
+                         data = data,
+                         ntree = 300,
+                         importance = TRUE)
+
+# Show feature importance scores
+importance(rf_model)
+
+# Plot variable importance
+varImpPlot(rf_model, main = "Random Forest Feature Importance")
+
+# Correlation analysis for numeric variables
+numeric_data <- data %>% select(where(is.numeric))
+cor_matrix <- cor(numeric_data)
+cor_matrix[, "fraud_reported"]  # Correlation of all numeric vars with fraud
+
+# Visualize correlation matrix
+corrplot(cor_matrix, method = "color", tl.cex = 0.7)
+
+# Chi-square tests for selected categorical variables
+chi_test <- function(var) {
+  tbl <- table(data[[var]], data$fraud_reported)
+  print(var)
+  print(chisq.test(tbl))
+}
+
+# List of categorical variables to test
+cat_vars <- c("incident_type",
+              "collision_type",
+              "incident_severity",
+              "property_damage",
+              "police_report_available",
+              "insured_sex",
+              "insured_education_level",
+              "insured_occupation",
+              "insured_relationship")
+
+# Initialize empty dataframe to store results
+chi_results <- data.frame(
+  Variable = character(),
+  Chi_Squared = numeric(),
+  df = numeric(),
+  p_value = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Loop through variables and compute chi-square
+for (var in cat_vars) {
+  tbl <- table(data[[var]], data$fraud_reported)
+  test <- chisq.test(tbl)
+  chi_results <- rbind(chi_results, data.frame(
+    Variable = var,
+    Chi_Squared = round(test$statistic, 3),
+    df = test$parameter,
+    p_value = signif(test$p.value, 4)
+  ))
+}
+
+# View combined results
+chi_results
+
+```
+
+
+```{r}
+# Question 2: Can we accurately predict fraudulent insurance claims using machine learning models?
+
+# Ensure target variable is a factor for classification
+data$fraud_reported <- factor(data$fraud_reported, levels = c(0,1))
+
+# Remove ID-like and location columns (if not already removed)
+model_data <- data %>% select(-policy_number, -incident_location)
+
+# Split dataset into training (70%) and testing (30%) sets
+set.seed(42)
+train_index <- createDataPartition(model_data$fraud_reported, p = 0.7, list = FALSE)
+train_data <- model_data[train_index, ]
+test_data  <- model_data[-train_index, ]
+
+# Baseline Logistic Regression (Predictive)
+logit_model_pred <- glm(fraud_reported ~ ., data = train_data, family = binomial)
+
+# Predict probabilities on the test set
+logit_probs <- predict(logit_model_pred, newdata = test_data, type = "response")
+
+# Convert probabilities to class labels (threshold = 0.5)
+logit_preds <- factor(ifelse(logit_probs > 0.5, 1, 0), levels = c(0,1))
+
+# Compute confusion matrix and performance metrics
+conf_logit <- confusionMatrix(logit_preds, test_data$fraud_reported, positive = "1")
+conf_logit
+
+# Extract key metrics
+logit_accuracy  <- conf_logit$overall['Accuracy']
+logit_precision <- conf_logit$byClass['Precision']
+logit_recall    <- conf_logit$byClass['Recall']
+logit_f1        <- conf_logit$byClass['F1']
+logit_metrics <- data.frame(Model="Logistic Regression",
+                            Accuracy=logit_accuracy,
+                            Precision=logit_precision,
+                            Recall=logit_recall,
+                            F1=logit_f1)
+logit_metrics
+
+# Random Forest Model (Main Predictive Model)
+set.seed(42)
+rf_model_pred <- randomForest(fraud_reported ~ ., data = train_data, ntree = 300, importance = TRUE)
+
+# Predict on test set
+rf_preds <- predict(rf_model_pred, newdata = test_data)
+
+# Confusion matrix and metrics
+conf_rf <- confusionMatrix(rf_preds, test_data$fraud_reported, positive = "1")
+conf_rf
+
+# Extract key metrics
+rf_accuracy  <- conf_rf$overall['Accuracy']
+rf_precision <- conf_rf$byClass['Precision']
+rf_recall    <- conf_rf$byClass['Recall']
+rf_f1        <- conf_rf$byClass['F1']
+rf_metrics <- data.frame(Model="Random Forest",
+                         Accuracy=rf_accuracy,
+                         Precision=rf_precision,
+                         Recall=rf_recall,
+                         F1=rf_f1)
+rf_metrics
+
+# Combine metrics for comparison
+all_metrics <- rbind(logit_metrics, rf_metrics)
+all_metrics
+
+# Variable Importance from Random Forest
+rf_var_imp <- importance(rf_model_pred)
+varImpPlot(rf_model_pred, main = "Random Forest Feature Importance (Q2)")
+```
+
+
+
+
+```{r}
+# Question 3: How do fraud patterns evolve over time, and what temporal trends can be identified in insurance claims? (Time-Series / Data Wrangling Focus)
+
+library(forecast)
+library(tseries)
+library(dplyr)
+library(ggplot2)
+library(lubridate) 
+
+
+daily_data <- data %>%
+  # Ensure the date column is properly formatted as a Date object
+  mutate(incident_date = as.Date(incident_date)) %>% 
+  group_by(incident_date) %>%
+  summarise(
+    claim_volume = n(),
+    # Assuming fraud_reported is "Y"/"N" or 1/0. Adjust condition as needed.
+    fraud_rate = mean(fraud_reported == "Y", na.rm = TRUE) 
+  ) %>%
+  arrange(incident_date)
+
+# Convert to a Time Series (ts) object
+# frequency = 7 assumes a weekly seasonal pattern in the daily data
+ts_volume <- ts(daily_data$claim_volume, frequency = 7)
+ts_fraud  <- ts(daily_data$fraud_rate, frequency = 7)
+
+# Classical Decomposition (Using Claim Volume)
+# This answers: What is 'Normal' vs 'Trend' vs 'Weekly Pattern'?
+decomp_volume <- stl(ts_volume, s.window = "periodic")
+plot(decomp_volume, main = "STL Decomposition of Daily Claim Volume (Weekly Seasonality)")
+
+
+# A 7-day moving average smooths out the day-of-week noise to show the true trend
+autoplot(ma(ts_volume, order = 7)) +
+  labs(
+    title = "7-Day Moving Average of Claim Volume", 
+    subtitle = "Jan 1, 2015 - Mar 1, 2015",
+    x = "Weeks (Index)", 
+    y = "Smoothed Count"
+  )
+
+# 4. Forecasting (ARIMA Model)
+fit_arima <- auto.arima(ts_volume)
+forecast_arima <- forecast(fit_arima, h = 14)
+
+autoplot(forecast_arima) +
+  labs(
+    title = "ARIMA Forecast for Next 14 Days (Claim Volume)",
+    x = "Weeks (Index)",
+    y = "Predicted Claims"
+  )
+```
+
