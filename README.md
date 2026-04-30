@@ -9,9 +9,9 @@ To study fraud based on a dataset, this study uses multiple approaches, which in
 ## Dataset Description
 The data set being utilized within this project is the Insurance Fraud Detection data set, and can be accessed via Kaggle via the link provided below: https://www.kaggle.com/datasets/arpan129/insurance-fraud-detection. This data set is a research carried out at Indian Institute of Management Calcutta, and comprises 1,000 records of insurance claims. There are 39 variables, 38 of which are independent while the last one (fraud_reported) is dependent. The dependent variable consists of binary values which take a value of either zero to indicate legitimacy, or one to indicate fraudulence. The data set comprises both numerical and categorical variables, including the nature of incidents (incident_severity), claim amounts (total_claim_amount), property damages, customer tenure amongst others. This is a classic example of fraud detection, where the minority class consists of fraudulent transactions, thus causing a problem of class imbalance which can impact models performance and evaluation. 
 ***
-Question 1: What factors are most strongly associated with insurance fraud claims?
-Question 2: Can we accurately predict fraudulent insurance claims using machine learning models?
-Question 3: How do fraud patterns evolve over time, and what temporal trends can be identified in insurance claims? 
+* Question 1: What factors are most strongly associated with insurance fraud claims?
+* Question 2: Can we accurately predict fraudulent insurance claims using machine learning models?
+* Question 3: How do fraud patterns evolve over time, and what temporal trends can be identified in insurance claims? 
 ***
 ## Limitation
 Temporal limitations in the use of the data set make it difficult to find patterns that are significant through time. While the limited data from early 2015 gives rise to interesting spikes in fraud cases in particular months, there are no other data that extend through time to allow one to examine the trends regarding insurance frauds and claims filings over a long period of time. Thus, to conduct an effective analysis concerning the temporal aspects, the data set must be expanded significantly. 
