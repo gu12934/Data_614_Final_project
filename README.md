@@ -28,6 +28,22 @@ Insurers who seek ways to improve their fraud detection systems will benefit fro
 * Severino, M. K., & Peng, Y. (2021). Machine learning algorithms for fraud prediction in property insurance: Empirical evidence using real-world microdata. Machine Learning with Applications, 5, 100074. https://doi.org/10.1016/j.mlwa.2021.100074
 * Arpan129. (2019). Insurance Fraud Detection [Data set]. Kaggle. https://www.kaggle.com/datasets/arpan129/insurance-fraud-detection 
 ***
+
+## Appendix
+
+<img width="987" height="633" alt="image" src="https://github.com/user-attachments/assets/88f285ba-194c-4440-b637-3b9d25d5037f" />
+
+<img width="597" height="548" alt="image" src="https://github.com/user-attachments/assets/50168b46-08ba-4242-b68a-59b17062fae1" />
+
+<img width="934" height="621" alt="image" src="https://github.com/user-attachments/assets/d5be2502-c152-4cd1-938e-40edee18ada4" />
+
+<img width="930" height="540" alt="image" src="https://github.com/user-attachments/assets/9ed02aba-79d0-41d1-8fe7-4dcfa8c111ba" />
+
+<img width="896" height="534" alt="image" src="https://github.com/user-attachments/assets/e4c7afff-bf9f-4dad-b68b-99d1e656f26a" />
+
+<img width="924" height="590" alt="image" src="https://github.com/user-attachments/assets/09fdb836-4c40-419d-b2a7-4e4c19891d5e" />
+
+***
 ## Group Project Requirements
 Group project is an important part of the class. Students will exercise formulating and
 solving problems using models and tools learned throughout the course. You will also
