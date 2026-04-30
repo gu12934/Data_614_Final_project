@@ -13,7 +13,8 @@ The data set being utilized within this project is the Insurance Fraud Detection
 ***
 * Question 1: What factors are most strongly associated with insurance fraud claims?
 * Question 2: Can we accurately predict fraudulent insurance claims using machine learning models?
-* Question 3: How do fraud patterns evolve over time, and what temporal trends can be identified in insurance claims? 
+* Question 3: How do fraud patterns evolve over time, and what temporal trends can be identified in insurance claims?
+* Youtube video: https://www.youtube.com/live/k3ftvLRAY5w
 ***
 ## Limitation
 Temporal limitations in the use of the data set make it difficult to find patterns that are significant through time. While the limited data from early 2015 gives rise to interesting spikes in fraud cases in particular months, there are no other data that extend through time to allow one to examine the trends regarding insurance frauds and claims filings over a long period of time. Thus, to conduct an effective analysis concerning the temporal aspects, the data set must be expanded significantly. 
