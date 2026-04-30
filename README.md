@@ -1,4 +1,6 @@
 # 👨🏻‍💻Detecting and Analyzing Insurance Fraud Using Data Analytics🕵️
+<img width="1000" height="600" alt="image" src="https://github.com/user-attachments/assets/97ea1815-b0d7-4da5-b064-370c96e8b0f1" />
+
 ***
 ## INTRODUCTION
 Insurance fraud continues to be a significant issue faced by insurers across the globe, resulting in huge financial losses per year and reducing the industry's efficiency. Insurance fraud, which involves overstated losses, faked claims, or any other form of deception, adds to operational expenses and increases the cost of policies for legitimate policyholders. Due to the difficulty of detecting insurance fraud, there has been an increased interest in analytics solutions that can deal with complex data, especially when it is scaled up (Maria Chousa Santos et al., 2024).
