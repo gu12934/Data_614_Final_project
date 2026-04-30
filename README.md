@@ -22,11 +22,11 @@ Temporal limitations in the use of the data set make it difficult to find patter
 Insurers who seek ways to improve their fraud detection systems will benefit from the results of this research in various ways. First, it is important to note that the study identifies several significant features of a case, including its level of severity, total claim value, and damage to property. These parameters could help insurers identify risky cases that require deeper examination. Secondly, it appears that the recall rate of the random forest algorithm indicates its potential use in the screening process to avoid missing any frauds while producing false alerts. Finally, claim attributes outweigh demographic characteristics, making it easier for firms to develop an unbiased system.
 ***
 ## References
-du Preez, A., Bhattacharya, S., Beling, P., & Bowen, E. (2024). Fraud detection in healthcare claims using machine learning: A systematic review. Artificial Intelligence in Medicine, 103061. https://doi.org/10.1016/j.artmed.2024.103061
-Hamid, Z., Khalique, F., Mahmood, S., Daud, A., Bukhari, A., & Alshemaimri, B. (2024). Healthcare insurance fraud detection using data mining. BMC Medical Informatics and Decision Making, 24(1). https://doi.org/10.1186/s12911-024-02512-4
-Maria Chousa Santos, Pereira, T., Mendes, I., & Amaral, A. (2024). Machine Learning for Insurance Fraud Detection. 56–65. https://doi.org/10.1007/978-3-031-51572-9_5
-Severino, M. K., & Peng, Y. (2021). Machine learning algorithms for fraud prediction in property insurance: Empirical evidence using real-world microdata. Machine Learning with Applications, 5, 100074. https://doi.org/10.1016/j.mlwa.2021.100074
-Arpan129. (2019). Insurance Fraud Detection [Data set]. Kaggle. https://www.kaggle.com/datasets/arpan129/insurance-fraud-detection 
+* du Preez, A., Bhattacharya, S., Beling, P., & Bowen, E. (2024). Fraud detection in healthcare claims using machine learning: A systematic review. Artificial Intelligence in Medicine, 103061. https://doi.org/10.1016/j.artmed.2024.103061
+* Hamid, Z., Khalique, F., Mahmood, S., Daud, A., Bukhari, A., & Alshemaimri, B. (2024). Healthcare insurance fraud detection using data mining. BMC Medical Informatics and * Decision Making, 24(1). https://doi.org/10.1186/s12911-024-02512-4
+* Maria Chousa Santos, Pereira, T., Mendes, I., & Amaral, A. (2024). Machine Learning for Insurance Fraud Detection. 56–65. https://doi.org/10.1007/978-3-031-51572-9_5
+* Severino, M. K., & Peng, Y. (2021). Machine learning algorithms for fraud prediction in property insurance: Empirical evidence using real-world microdata. Machine Learning with Applications, 5, 100074. https://doi.org/10.1016/j.mlwa.2021.100074
+* Arpan129. (2019). Insurance Fraud Detection [Data set]. Kaggle. https://www.kaggle.com/datasets/arpan129/insurance-fraud-detection 
 ***
 ## Group Project Requirements
 Group project is an important part of the class. Students will exercise formulating and
