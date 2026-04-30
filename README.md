@@ -30,7 +30,7 @@ Insurers who seek ways to improve their fraud detection systems will benefit fro
 * Arpan129. (2019). Insurance Fraud Detection [Data set]. Kaggle. https://www.kaggle.com/datasets/arpan129/insurance-fraud-detection 
 ***
 
-## Appendix
+## Appendix/Visualization
 
 <img width="987" height="633" alt="image" src="https://github.com/user-attachments/assets/88f285ba-194c-4440-b637-3b9d25d5037f" />
 
