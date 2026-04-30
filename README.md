@@ -27,8 +27,8 @@ Hamid, Z., Khalique, F., Mahmood, S., Daud, A., Bukhari, A., & Alshemaimri, B. (
 Maria Chousa Santos, Pereira, T., Mendes, I., & Amaral, A. (2024). Machine Learning for Insurance Fraud Detection. 56–65. https://doi.org/10.1007/978-3-031-51572-9_5
 Severino, M. K., & Peng, Y. (2021). Machine learning algorithms for fraud prediction in property insurance: Empirical evidence using real-world microdata. Machine Learning with Applications, 5, 100074. https://doi.org/10.1016/j.mlwa.2021.100074
 Arpan129. (2019). Insurance Fraud Detection [Data set]. Kaggle. https://www.kaggle.com/datasets/arpan129/insurance-fraud-detection 
-
-
+***
+## Group Project Requirements
 Group project is an important part of the class. Students will exercise formulating and
 solving problems using models and tools learned throughout the course. You will also
 practice group work and presentation skills, both of which are crucial for your careers
@@ -47,7 +47,7 @@ on D2L. Consult your ideas with the instructor early on to help you better prepa
 your papers. You are required to submit your papers on D2L and present your papers
 in short format (about 5 minutes) to the class on the same day as group projects (last
 day of class). The Group Paper files should be submitted through D2L Dropbox
-
+***
 # course schedule
 <img width="1245" height="673" alt="image" src="https://github.com/user-attachments/assets/46369245-d5ef-47ef-b6a3-de262d90dd1a" />
 
@@ -59,6 +59,4 @@ day of class). The Group Paper files should be submitted through D2L Dropbox
 
 ## group paper
 <img width="1121" height="261" alt="image" src="https://github.com/user-attachments/assets/3c3a60c4-4c54-4275-9ba5-e13cbe49ae8e" />
-
-good repo to check out: https://github.com/avoytkiv/MDSA-UofC/tree/main/DATA607
 
