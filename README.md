@@ -8,6 +8,22 @@ Insurance fraud continues to be a significant issue faced by insurers across the
 ## METHODOLOGY
 To study fraud based on a dataset, this study uses multiple approaches, which includes the identification of factors that are related to fraud, fraud prediction based on machine learning algorithms, and temporal trends of fraud. Each part of the methodology depends on each research question.
 ***
+
+```
+├── R_codes                                                        
+│   ├── construction_project_raw.csv 
+│   ├── insurance_fraud_raw.csv                   
+│   │   ├── Bhuvan_Final_Code.R
+│   │   ├── DATA614_Final_Project_TS_bilal.Rmd
+│   │   ├── insurance_fraud_analysis.R
+│   │   ├── micro_spike_timeseries.R
+│   │   ├── readme.md
+│   │   ├── time_series_modelling.R
+│   │   └── ...
+│
+├── brainstorming
+├── seperate_report
+```
 ## Dataset Description
 The data set being utilized within this project is the Insurance Fraud Detection data set, and can be accessed via Kaggle via the link provided below: https://www.kaggle.com/datasets/arpan129/insurance-fraud-detection. This data set is a research carried out at Indian Institute of Management Calcutta, and comprises 1,000 records of insurance claims. There are 39 variables, 38 of which are independent while the last one (fraud_reported) is dependent. The dependent variable consists of binary values which take a value of either zero to indicate legitimacy, or one to indicate fraudulence. The data set comprises both numerical and categorical variables, including the nature of incidents (incident_severity), claim amounts (total_claim_amount), property damages, customer tenure amongst others. This is a classic example of fraud detection, where the minority class consists of fraudulent transactions, thus causing a problem of class imbalance which can impact models performance and evaluation. 
 ***
